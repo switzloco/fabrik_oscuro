@@ -7,19 +7,46 @@
   launch/.factory-state.json (gitignored). Each seat rides the local Claude Code
   subscription login (--runtime-auth subscription) -- no ANTHROPIC_API_KEY needed.
 
-  See launch/PLAN.md "Headless spike results" for how this recipe was derived.
+  Derived from gs-syk/dark-factory's launch-headless.ps1, with three changes:
+
+  1. Seat names are bare roles (architect, builder, verifier, spec-auditor) so each
+     one matches its mandate filename. Gate 1 requires "a mandate file named after
+     that seat"; a seat called factory-architect has no architect.md and the entry
+     is not ranked.
+  2. The Verifier runs a different model from the Builder, and the -RuntimeModel
+     values here must stay identical to the Model: line in each mandate -- gate 1
+     checks the mandate names the model the seat actually runs.
+  3. --cwd is the workspace root rather than one repository, so the same seats serve
+     the toy rehearsal and the graded run. A headless seat's cwd is fixed at
+     creation; the dispatch names the absolute target path.
+
+.PARAMETER Workspace
+  Absolute path the seats work under. Must contain both the kickoff checkout and
+  band-work/.
+
+.PARAMETER NewRoom
+  Create a fresh room even if one is recorded. The submitted run requires a fresh
+  room and a fresh result repository.
 #>
+
+param(
+    [string]$Workspace = "C:\dev\darkfactory",
+    [switch]$NewRoom
+)
 
 $ErrorActionPreference = "Stop"
 
-$RepoRoot = Split-Path -Parent $PSScriptRoot
+$RepoRoot  = Split-Path -Parent $PSScriptRoot
 $StateFile = Join-Path $PSScriptRoot ".factory-state.json"
 
+if (-not (Test-Path $Workspace)) { throw "Workspace not found: $Workspace" }
+$Workspace = (Resolve-Path $Workspace).Path
+
 $Seats = @(
-    @{ Name = "factory-architect";    Session = "factory-architect-spike";    Model = "claude-opus-5";    Mandate = "mandates/architect.md" }
-    @{ Name = "factory-builder";      Session = "factory-builder-spike";      Model = "claude-opus-5";    Mandate = "mandates/builder.md" }
-    @{ Name = "factory-verifier";     Session = "factory-verifier-spike";     Model = "claude-opus-5";    Mandate = "mandates/verifier.md" }
-    @{ Name = "factory-spec-auditor"; Session = "factory-spec-auditor-spike"; Model = "claude-sonnet-5";  Mandate = "mandates/spec-auditor.md" }
+    @{ Name = "architect";    Session = "factory-architect";    Model = "claude-opus-5";    Mandate = "mandates/architect.md" }
+    @{ Name = "builder";      Session = "factory-builder";      Model = "claude-opus-5";    Mandate = "mandates/builder.md" }
+    @{ Name = "verifier";     Session = "factory-verifier";     Model = "claude-fable-5-1"; Mandate = "mandates/verifier.md" }
+    @{ Name = "spec-auditor"; Session = "factory-spec-auditor"; Model = "claude-sonnet-5";  Mandate = "mandates/spec-auditor.md" }
 )
 
 function Invoke-Jam {
@@ -27,6 +54,18 @@ function Invoke-Jam {
     $output = & jam @JamArgs 2>&1
     [PSCustomObject]@{ ExitCode = $LASTEXITCODE; Output = ($output -join "`n") }
 }
+
+# --- check each mandate's Model: line matches what we are about to create ------
+
+foreach ($seat in $Seats) {
+    $path = Join-Path $RepoRoot $seat.Mandate
+    if (-not (Test-Path $path)) { throw "Mandate missing: $path" }
+    $declared = (Select-String -Path $path -Pattern '^Model:\s*(\S+)' | Select-Object -First 1).Matches.Groups[1].Value
+    if ($declared -ne $seat.Model) {
+        throw "$($seat.Mandate) declares Model: $declared but this script creates $($seat.Model). Gate 1 requires them to agree."
+    }
+}
+Write-Host "Mandates agree with the models this script creates."
 
 # --- load or init local state -------------------------------------------------
 
@@ -47,6 +86,7 @@ if ($LASTEXITCODE -ne 0) { throw "jam whoami failed: $whoami`nRun 'jam init' fir
 if ($whoami -notmatch '@(\S+)') { throw "Could not parse a handle out of 'jam whoami': $whoami" }
 $Owner = $Matches[1]
 Write-Host "Band account: $Owner"
+Write-Host "Seat working directory: $Workspace"
 
 # --- create or reconcile each seat ---------------------------------------------
 
@@ -59,7 +99,6 @@ foreach ($seat in $Seats) {
     }
 
     Write-Host "Creating seat: $handle ($($seat.Model)) ..."
-    $mandatePath = Join-Path $RepoRoot $seat.Mandate
     $result = Invoke-Jam @(
         "agent", "create",
         "--session", $seat.Session,
@@ -67,8 +106,8 @@ foreach ($seat in $Seats) {
         "--name", $seat.Name,
         "--runtime-auth", "subscription",
         "--runtime-model", $seat.Model,
-        "--cwd", $RepoRoot,
-        "--instructions-file", $mandatePath,
+        "--cwd", $Workspace,
+        "--instructions-file", (Join-Path $RepoRoot $seat.Mandate),
         "--json"
     )
 
@@ -78,7 +117,7 @@ foreach ($seat in $Seats) {
         Save-State
         Write-Host "  created, agent_id $agentId"
     } elseif ($result.Output -match "already exists") {
-        Write-Warning "$handle already exists locally but isn't in $StateFile. Find its agent_id (jam status --as $handle won't show it; check Jam Desktop's Runtime tab) and add it to the state file's ""seats"" map, or 'jam rm --as $handle' it and re-run this script to recreate it cleanly."
+        Write-Warning "$handle already exists in Jam but is absent from $StateFile. Find its agent_id in Jam Desktop's Runtime tab and add it to the state file's ""seats"" map, or 'jam rm --as $handle' and re-run to recreate it cleanly."
         throw "Unreconciled existing seat: $handle"
     } else {
         throw "jam agent create failed for $handle`:`n$($result.Output)"
@@ -87,11 +126,11 @@ foreach ($seat in $Seats) {
 
 # --- create or reuse the shared chat -------------------------------------------
 
-$ArchitectHandle = "$Owner/factory-architect"
+$ArchitectHandle = "$Owner/architect"
 
-if ($State.room_chat_id) {
+if ($State.room_chat_id -and -not $NewRoom) {
     $ChatId = $State.room_chat_id
-    Write-Host "Room known: $ChatId - skipping create"
+    Write-Host "Room known: $ChatId - skipping create (pass -NewRoom to start a fresh one)"
 } else {
     Write-Host "Creating shared room as $ArchitectHandle ..."
     $result = Invoke-Jam @("chat", "new", "--as", $ArchitectHandle)
@@ -123,7 +162,11 @@ if ($toAdd.Count -gt 0) {
 
 Write-Host ""
 Write-Host "Factory room ready: $ChatId"
-Write-Host "Post the brief with:"
-Write-Host "  jam room send $ChatId `"@Architect <your brief>`" --mention $($State.seats['factory-architect'])"
-Write-Host "Watch it with:"
+Write-Host ""
+Write-Host "Seat handles, for the roster in the dispatch:"
+foreach ($seat in $Seats) { Write-Host "  $Owner/$($seat.Name)" }
+Write-Host ""
+Write-Host "Dispatch with:"
+Write-Host "  jam room send $ChatId `"@architect <your brief>`" --mention $($State.seats['architect'])"
+Write-Host "Watch with:"
 Write-Host "  jam room messages $ChatId"
