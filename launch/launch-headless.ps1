@@ -147,8 +147,15 @@ $result = Invoke-Jam @("chat", "participants", $ChatId, "--as", $ArchitectHandle
 if ($result.ExitCode -ne 0) { throw "jam chat participants failed:`n$($result.Output)" }
 $currentParticipants = $result.Output
 
+# Compare whole handles, not substrings. The bare owner handle is a prefix of every
+# seat handle, so a substring test always reports the human as already present, the
+# human never gets added, and `jam room send` then 404s on the room.
+$present = $currentParticipants -split "`r?`n" |
+    ForEach-Object { ($_.Trim() -split '\s+')[0] } |
+    Where-Object { $_ }
+
 $wanted = @($Owner) + ($Seats | ForEach-Object { "$Owner/$($_.Name)" })
-$toAdd = $wanted | Where-Object { $currentParticipants -notmatch [regex]::Escape($_) }
+$toAdd = $wanted | Where-Object { $present -notcontains $_ }
 
 if ($toAdd.Count -gt 0) {
     Write-Host "Adding participants: $($toAdd -join ', ')"
@@ -157,6 +164,18 @@ if ($toAdd.Count -gt 0) {
 } else {
     Write-Host "All participants already present."
 }
+
+# Re-read and confirm, rather than trusting the add. A missing human is the failure
+# that shows up much later as an unexplained HTTP 404 from `jam room send`.
+$result = Invoke-Jam @("chat", "participants", $ChatId, "--as", $ArchitectHandle)
+if ($result.ExitCode -ne 0) { throw "jam chat participants failed:`n$($result.Output)" }
+$present = $result.Output -split "`r?`n" |
+    ForEach-Object { ($_.Trim() -split '\s+')[0] } |
+    Where-Object { $_ }
+
+$missing = $wanted | Where-Object { $present -notcontains $_ }
+if ($missing) { throw "Not in the room after add: $($missing -join ', ')" }
+Write-Host "Confirmed in the room: $($wanted -join ', ')"
 
 # --- done ------------------------------------------------------------------------
 
