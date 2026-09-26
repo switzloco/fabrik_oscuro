@@ -1,0 +1,17 @@
+# Everything in this repository ends up inside a Linux container. A CRLF line ending in
+# a Dockerfile, an entrypoint or any shell script makes the container fail to start with
+# an error that names a file that plainly exists, and stage-1/ failing to start is gate 3
+# — an unranked entry. Git for Windows converts on checkout by default, so pin it here
+# rather than relying on every contributor's core.autocrlf.
+* text=auto eol=lf
+
+# Binary files git must not touch.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.pdf binary
+*.zip binary
+*.ico binary
+*.woff binary
+*.woff2 binary
