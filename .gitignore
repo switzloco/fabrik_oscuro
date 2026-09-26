@@ -1,0 +1,29 @@
+# Credentials and secrets
+.env
+.env.*
+agent_config.yaml
+*.key
+*.pem
+*.p12
+secrets/
+
+# Local Jam / Claude Code state
+.jam/
+.claude/settings.local.json
+launch/.factory-state.json
+
+# OS and editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Language build artifacts
+node_modules/
+__pycache__/
+*.pyc
+.venv/
+venv/
+dist/
+build/
+*.log
