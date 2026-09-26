@@ -2,88 +2,104 @@
 
 A wallet and payments service, built by a four-seat agent software factory.
 
-Entry for [WeAreDevelopers x BAND — Dark Factory](https://lablab.ai/ai-hackathons/wearedevelopers-hackathon), **pocketful track**. What is submitted here is the factory, the run that produced the result, and the result.
+Entry for [WeAreDevelopers x BAND — Dark Factory](https://lablab.ai/ai-hackathons/wearedevelopers-hackathon), **pocketful track**.
 
-The hard part of this track: **money must never be created, destroyed or spent twice**, under concurrent transfers, retries and rounding.
+Everything under `stage-N/` was written by the band working in a BAND Desktop room, not
+by hand. `room.json` is that room, downloaded unedited. The factory that produced it is
+described in [FACTORY.md](FACTORY.md) and defined by the files in [`mandates/`](mandates/),
+none of which mention wallets, payments or this track at all — that is the point of them.
 
-## Repository layout
+## How to read this repository
+
+| Path | What it is |
+|---|---|
+| [`FACTORY.md`](FACTORY.md) | The factory: the four seats, the routing between them, the design choices and what they cost |
+| [`mandates/`](mandates/) | One standing-instruction file per seat, named after the seat. Generic by construction |
+| `room.json` | The full BAND room download — every message and tool call the band produced |
+| `stage-1/` … | One complete, buildable service per completed stage. Each has a `Dockerfile` and a `RUN.md` |
+| [`HACKATHON.md`](HACKATHON.md) | Our working digest of the event rules |
+| [`launch/`](launch/) | How the seats are brought up, and the brief template used to dispatch a stage |
+
+Each stage folder holds the solution to *that* stage: `stage-2/` is `stage-1/` carried
+forward and widened to the stage 2 specification, and so on. A later answer filed in an
+earlier folder claims nothing, which is why they are not all copies of the final one.
+
+## The crew
+
+| Seat | Harness | Model | The one job it owns |
+|---|---|---|---|
+| Architect | Claude Code | `claude-opus-5` | Plan, sequence, integrate, decide when a stage is complete |
+| Builder | Claude Code | `claude-opus-5` | Implement one scoped work item at a time |
+| Verifier | Claude Code | `claude-fable-5-1` | Independently check the work against the specification |
+| Spec Auditor | Claude Code | `claude-sonnet-5` | Prove every requirement is implemented, checked, and not exceeded |
+
+The Verifier never runs the Builder's model. Two instances of one model fail in
+correlated ways, and a checker that fails the way the author fails is not a checker.
+[FACTORY.md](FACTORY.md) states that as a constraint on the table rather than a
+description of it.
+
+## How the work moves
+
+A stage is dispatched once, as a single task carrying the complete specification. From
+that dispatch to the Architect's final report, nothing further arrives from outside the
+band — no approvals, no hints, no reruns. Seats resolve every question among themselves
+and record the assumption in the room.
 
 ```
-README.md          this file
-FACTORY.md         the factory description: crew, routing, flow, design principles
-HACKATHON.md       the event rules, submission requirements and disqualifiers
-mandates/          one standing-instruction file per seat — generic, no track detail
-launch/            the launch script and the brief template
-stage-N/           the solution for each completed stage
-room-export/       the BAND Desktop room export (`harness export-room`)
+dispatch -> Architect plans, splits into work items
+         -> Builder implements one item, builds it, runs it, hands off
+         -> Verifier derives checks from the spec, runs them
+              fail -> reproducible report back to Builder -> fix -> re-run
+              pass -> verdict with evidence to Architect
+         -> Spec Auditor audits the stage against the spec: gaps and extras both
+         -> Architect declares the stage complete only with both sign-offs
 ```
 
-## The factory
+The Builder cannot reach the Spec Auditor or the person who dispatched the work. It
+cannot ask for its own sign-off or route around the Verifier — not by policy, but
+because there is no path. Take the room away and that guarantee does not weaken, it
+stops existing.
 
-Four Claude Code seats in one BAND room. A human posts a written specification;
-the seats plan it, implement it, verify it and audit it until each milestone
-passes. See [FACTORY.md](FACTORY.md) for the crew, the routing and why the room
-is load-bearing.
+## Running the factory
 
-The mandates in [`mandates/`](mandates/) are generic — they describe how a seat
-works, never what is being built. Nothing in them names an endpoint, a field, an
-error code or a `data-testid`. The pocketful specification is supplied at run
-time in the brief, not baked into a seat.
-
-## Running it
-
-Prerequisites: a [BAND account](https://app.band.ai/), Jam Desktop signed in
-(`jam whoami` must succeed), and Claude Code signed in to a Claude subscription.
-The seats ride that login — no `ANTHROPIC_API_KEY` is used.
+Prerequisites: a [BAND account](https://app.band.ai/), Band Desktop signed in, Claude
+Code signed in, Python 3.12+, and a running Docker daemon.
 
 ```powershell
 launch/launch-headless.ps1
 ```
 
-Creates the four seats and one shared room, adds you and the seats to it, and
-prints the room's `chat_id`. Safe to re-run. Then post the brief using
-[`launch/brief-template.md`](launch/brief-template.md) for the shape:
+Brings up the four seats and one shared room, adds every seat to it, and prints the
+room's `chat_id`. Safe to re-run. Dispatch a stage with the shape in
+[`launch/brief-template.md`](launch/brief-template.md), then leave it alone.
 
+## Checking a stage
+
+The harness lives in the kickoff checkout, not here. From that checkout:
+
+```sh
+python -m harness run --track pocketful --repo <path to this repo> --stage 1 \
+  --out ../band-work/checks/s1-01
 ```
-jam room send <chat_id> "@Architect <your brief>" --mention <architect_agent_id>
-jam room messages <chat_id>
+
+Read the last line: `claimed stage: 1` is what a correct `stage-1/` prints. The extra
+`stage 2: fail` line above it is expected — a `stage-1/` that passed suite 2 would be a
+stage 2 answer in the wrong folder.
+
+Final checks run in isolated mode, because that is how they are graded — no outbound
+network, 2 vCPU, 2 GiB:
+
+```sh
+python -m harness run --track pocketful --repo <path to this repo> --all --mode isolated
+python -m harness check <path to this repo> --track pocketful
 ```
 
-Step in only when the Architect surfaces a decision.
-
-## Submission checklist
-
-Every item below is a rule from [HACKATHON.md](HACKATHON.md). The first three
-are disqualifiers or eligibility gates, not preferences.
-
-- [ ] **`stage-1/` complete and buildable** — the eligibility floor. No stage 1, no score.
-- [ ] **Mandates carry no track-specific detail** — verify with `harness check`. Naming a pocketful endpoint, field or error code disqualifies the entry.
-- [ ] **The service builds and serves from a clean container with no outbound network.** A service that does not start scores zero.
-- [ ] **Video includes a recording of the BAND room** that generated the solution, plus a walkthrough. Missing the room recording disqualifies.
-- [ ] Each `stage-N/` holds *that* stage's solution — one that also passes the next stage's suite earns nothing for its own stage.
-- [ ] `room-export/` committed from `harness export-room`.
-- [ ] `harness check` passes before the final push; no credentials in the repo.
-
-## Status
-
-The four stage specifications are released at kickoff and are not known before
-then. Nothing under `stage-N/` exists yet.
-
-## Known issues
-
-- **Seats share one working directory.** The launch script puts all four seats
-  in the repository root. While that holds, the Builder can reach the Verifier's
-  checks and the Verifier's clean-checkout release check proves nothing — two
-  mandate rules that cannot be enforced. A separate `git worktree` per seat,
-  with the Builder pushing to a branch the Verifier checks out fresh, is the
-  intended fix.
+The shipped checks are partial — 79% of suite 1, 35% of suite 2, 9% of suite 3, 16% of
+suite 4. A green run is not evidence of a stage. The specification is.
 
 ## Credit
 
-The seat mandates, [FACTORY.md](FACTORY.md) and the headless launch script come
-from George Stoien's [dark-factory](https://github.com/gs-syk/dark-factory),
-shared across two entries in different tracks. That the same mandates stand up
-an unrelated product is the property they are meant to have.
-
-One deliberate change from upstream: the Verifier runs a different model from
-the Builder. See the note in [FACTORY.md](FACTORY.md#the-crew).
+The seat mandates, the factory description and the headless launch script come from
+George Stoien's [dark-factory](https://github.com/gs-syk/dark-factory), shared across
+two entries in different tracks. That the same mandates stand up an unrelated product is
+the property they are meant to have, and the one the rubric weighs most heavily.

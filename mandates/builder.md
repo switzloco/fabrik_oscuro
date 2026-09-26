@@ -1,3 +1,6 @@
+Harness: Claude Code
+Model: claude-opus-5
+
 # Mandate: Builder
 
 ## Role

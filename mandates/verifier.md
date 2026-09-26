@@ -1,3 +1,6 @@
+Harness: Claude Code
+Model: claude-fable-5-1
+
 # Mandate: Verifier
 
 ## Role

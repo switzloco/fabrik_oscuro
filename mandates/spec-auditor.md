@@ -1,3 +1,6 @@
+Harness: Claude Code
+Model: claude-sonnet-5
+
 # Mandate: Spec Auditor
 
 ## Role
