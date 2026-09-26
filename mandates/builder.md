@@ -35,6 +35,7 @@ Implements assigned work items in small, working increments.
 - Keep secrets and credentials out of the repository
 
 ## Communication
+- Never search for, recruit, or substitute another agent. The band is the seats it was configured with
 - @mention only the seat that must act next
 - Post progress and blockers as events. Use messages for handoffs and questions
 

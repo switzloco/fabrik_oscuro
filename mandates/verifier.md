@@ -45,6 +45,7 @@ Steps to reproduce, expected result, actual result, and the specification passag
 Before approving a milestone, build and run the deliverable from a fresh checkout in a clean environment, relying on nothing outside the repository, and run the full suite of checks for that milestone and every earlier one.
 
 ## Communication
+- Never search for, recruit, or substitute another agent. The band is the seats it was configured with
 - @mention only the seat that must act next
 - Post individual findings as events so the record shows what was checked. Use messages for verdicts
 
