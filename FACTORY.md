@@ -12,7 +12,7 @@ The seat mandates in [`mandates/`](mandates/) are generic. They describe how a s
 |---|---|---|---|
 | **Architect** | Claude Code | Opus 5 | Plan, sequence, integrate, and decide when a milestone is complete |
 | **Builder** | Claude Code | Opus 5 | Implement one scoped work item at a time |
-| **Verifier** | Claude Code | Fable 5.1 | Independently check the work against the specification |
+| **Verifier** | Claude Code | Sonnet 5 | Independently check the work against the specification |
 | **Spec Auditor** | Claude Code | Sonnet 5 | Prove that every requirement is implemented, checked, and not exceeded |
 
 Model choice is runtime configuration, not part of a mandate, and it can be changed per seat without touching the mandate files. The seats deliberately use different model tiers. The seat that verifies the work is not the same model as the seat that produced it, so the two are less likely to share blind spots.

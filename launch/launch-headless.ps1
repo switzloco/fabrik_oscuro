@@ -45,7 +45,7 @@ $Workspace = (Resolve-Path $Workspace).Path
 $Seats = @(
     @{ Name = "architect";    Session = "factory-architect";    Model = "claude-opus-5";    Mandate = "mandates/architect.md" }
     @{ Name = "builder";      Session = "factory-builder";      Model = "claude-opus-5";    Mandate = "mandates/builder.md" }
-    @{ Name = "verifier";     Session = "factory-verifier";     Model = "claude-fable-5-1"; Mandate = "mandates/verifier.md" }
+    @{ Name = "verifier";     Session = "factory-verifier";     Model = "claude-sonnet-5";  Mandate = "mandates/verifier.md" }
     @{ Name = "spec-auditor"; Session = "factory-spec-auditor"; Model = "claude-sonnet-5";  Mandate = "mandates/spec-auditor.md" }
 )
 

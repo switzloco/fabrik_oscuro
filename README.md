@@ -30,7 +30,7 @@ earlier folder claims nothing, which is why they are not all copies of the final
 |---|---|---|---|
 | Architect | Claude Code | `claude-opus-5` | Plan, sequence, integrate, decide when a stage is complete |
 | Builder | Claude Code | `claude-opus-5` | Implement one scoped work item at a time |
-| Verifier | Claude Code | `claude-fable-5-1` | Independently check the work against the specification |
+| Verifier | Claude Code | `claude-sonnet-5` | Independently check the work against the specification |
 | Spec Auditor | Claude Code | `claude-sonnet-5` | Prove every requirement is implemented, checked, and not exceeded |
 
 The Verifier never runs the Builder's model. Two instances of one model fail in
