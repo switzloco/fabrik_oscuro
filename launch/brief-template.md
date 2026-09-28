@@ -18,7 +18,12 @@ Constraints:
 Done state:
   <how the human will judge that a milestone or the whole task is complete>
 
-Escalation:
-  Ask me only when the specification does not settle a product decision.
-  Offer one recommended default, not a menu of options.
+Autonomy:
+  This dispatch is your only input. Nobody will answer a question, approve a step or
+  confirm a choice. Resolve every question inside the band: record the assumption and
+  the passage it rests on, and proceed. If the band cannot proceed, record the blocker
+  and the evidence as the outcome, report it, and stop.
 ```
+
+A worked example for running every stage from one dispatch is in
+[`dispatch-all-stages.md`](dispatch-all-stages.md).

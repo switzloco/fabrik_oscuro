@@ -19,6 +19,7 @@ none of which mention wallets, payments or this track at all — that is the poi
 | `stage-1/` … | One complete, buildable service per completed stage. Each has a `Dockerfile` and a `RUN.md` |
 | [`HACKATHON.md`](HACKATHON.md) | Our working digest of the event rules |
 | [`launch/`](launch/) | How the seats are brought up, and the brief template used to dispatch a stage |
+| [`rehearsals/`](rehearsals/) | What each practice run cost, what broke, and what we changed because of it |
 
 Each stage folder holds the solution to *that* stage: `stage-2/` is `stage-1/` carried
 forward and widened to the stage 2 specification, and so on. A later answer filed in an

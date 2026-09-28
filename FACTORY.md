@@ -23,7 +23,7 @@ That last sentence is a constraint on the table above, not a description of it: 
 
 Routing runs through `@mentions`. A seat sees only the messages in which it is mentioned, and the human sees the whole room.
 
-- **Human ↔ Architect.** The Architect is the single escalation point, so there is exactly one place a person has to look.
+- **Human → Architect.** One dispatch per run, and nothing after it. The Architect is the only seat that reports back, so there is exactly one place a person has to look, and what it posts is an outcome, never a question.
 - **Architect → Builder.** One scoped work item at a time, with acceptance criteria.
 - **Builder → Architect.** The committed revision and a handoff note when an item is implemented.
 - **Architect → Verifier.** A verification request carrying the complete requirements, the revision and the Builder's note. A seat cannot read the room, so the requirements travel with the request.
@@ -35,7 +35,7 @@ Routing runs through `@mentions`. A seat sees only the messages in which it is m
 Deliberately left out of mentions:
 - The **Builder never mentions the Auditor or the human.** It cannot ask for its own sign-off or route around the Verifier.
 - The **Auditor is not mentioned on every work item.** It works at milestone boundaries, which keeps the room readable and its sign-off meaningful.
-- The **Verifier and Auditor do not message the human.** Escalation goes through the Architect only.
+- The **Verifier and Auditor do not message the human.** Their findings go to the Architect, which resolves them inside the band.
 
 ## One typical run
 
@@ -53,7 +53,7 @@ Human posts brief + specification
   -> @Spec Auditor updates the traceability record, lists gaps and extras
   -> @Verifier builds and runs from a clean checkout and runs every check so far
   -> @Architect declares the milestone complete only when both sign off,
-     then tells the human what was done and what decision, if any, is needed
+     then posts the committed revision and what was done — a report, never a question
 ```
 
 ## What breaks without the room
@@ -66,7 +66,7 @@ Take the room away and the Verifier's independence and the Auditor's sign-off co
 - **No self-approval.** The seat that produced work never marks it verified or complete.
 - **Evidence over assertion.** Verdicts cite runs, checks, and specification passages.
 - **Milestone isolation.** A milestone's deliverable contains only what that milestone requires.
-- **One human gate.** The Architect owns all escalation, with a recommended default rather than a menu.
+- **No human gate.** The dispatch is the only input. The Architect is the only seat that reports to the human, and it reports outcomes, never questions: an unsettled requirement becomes a recorded assumption, and a genuine blocker becomes the recorded outcome of the run.
 - **Restart-safe.** Each mandate says what a seat does after a reattach: announce it, read the room history and plan, and resume the last unfinished item.
 - **Stall-aware.** No human watches a submitted run, so the Architect keeps a list of open handoffs and re-sends any that a seat has not answered. Seats stop their own processes before handing off, because a turn that ends in an error can lose the reply it just wrote.
 - **Machine-readable verdicts.** The Verifier and the Spec Auditor each end with one `VERDICT:` line, and the Architect declares a milestone only on two approvals of the same revision.
