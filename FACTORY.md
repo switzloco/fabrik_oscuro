@@ -25,9 +25,11 @@ Routing runs through `@mentions`. A seat sees only the messages in which it is m
 
 - **Human ↔ Architect.** The Architect is the single escalation point, so there is exactly one place a person has to look.
 - **Architect → Builder.** One scoped work item at a time, with acceptance criteria.
-- **Builder → Verifier.** A handoff note when an item is implemented.
+- **Builder → Architect.** The committed revision and a handoff note when an item is implemented.
+- **Architect → Verifier.** A verification request carrying the complete requirements, the revision and the Builder's note. A seat cannot read the room, so the requirements travel with the request.
 - **Verifier → Builder.** A reproducible failure report when an item is returned.
-- **Verifier → Architect.** A verdict backed by evidence.
+- **Builder → Verifier.** The fixed revision, answering each point of the failure report.
+- **Verifier → Architect.** A verdict backed by evidence, ending in one `VERDICT:` line.
 - **Architect → Spec Auditor → Architect.** A traceability review at each milestone boundary.
 
 Deliberately left out of mentions:
@@ -40,10 +42,12 @@ Deliberately left out of mentions:
 ```text
 Human posts brief + specification
   -> @Architect plans, splits into work items, records assumptions
-  -> @Builder implements item 1, builds and runs it, hands off
+  -> @Builder implements item 1 in committed increments, hands the revision to @Architect
+  -> @Architect records or returns any behaviour the Builder chose, then sends
+     @Verifier the complete requirements with the revision
   -> @Verifier derives checks from the spec, runs them
        fail -> returns a reproducible report to @Builder -> Builder fixes -> Verifier re-runs
-       pass -> reports an approved verdict to @Architect
+       pass -> VERDICT: APPROVE to @Architect
   -> (repeat for each item in the milestone)
   -> @Architect requests a milestone review from @Spec Auditor
   -> @Spec Auditor updates the traceability record, lists gaps and extras
@@ -64,6 +68,9 @@ Take the room away and the Verifier's independence and the Auditor's sign-off co
 - **Milestone isolation.** A milestone's deliverable contains only what that milestone requires.
 - **One human gate.** The Architect owns all escalation, with a recommended default rather than a menu.
 - **Restart-safe.** Each mandate says what a seat does after a reattach: announce it, read the room history and plan, and resume the last unfinished item.
+- **Stall-aware.** No human watches a submitted run, so the Architect keeps a list of open handoffs and re-sends any that a seat has not answered. Seats stop their own processes before handing off, because a turn that ends in an error can lose the reply it just wrote.
+- **Machine-readable verdicts.** The Verifier and the Spec Auditor each end with one `VERDICT:` line, and the Architect declares a milestone only on two approvals of the same revision.
+- **Commits tell the story.** The Builder commits each working increment under its own seat name, and nobody rewrites history, so the git log and the room log can be read side by side.
 
 ## Running it
 
