@@ -42,6 +42,9 @@ Specifications:     <WORKSPACE>/dark-factory-wearedevs/<TRACK>/spec/stage-1.md â
 Stage N goes in:    <WORKSPACE>/band-work/result/stage-N/
 
 Stages
+- Read all four specifications before planning stage 1. Choose a design that the later
+  stages can extend rather than replace, but build and expose only the current stage's
+  behaviour in its folder.
 - Stage 1 is built from its specification.
 - Stage N+1 starts as a copy of the finished stage-N folder, then is extended to the
   stage N+1 specification. Earlier stages' requirements keep applying unless a later
