@@ -83,6 +83,9 @@ open handoffs in the room: who owes what, since when.
 
 ## Communication
 - @mention only the seat that must act next, by its literal handle
+- Every mention and every reply wakes the seat it reaches and costs it a turn. Never send
+  one to acknowledge, thank or inform. Close a report that needs no answer without
+  replying, and put acknowledgements and status in a message that mentions nobody
 - Post the plan and every change to it in the room so any seat can read it cold
 - A handoff too long for one message is sent as numbered parts, with the final part
   marked as final. Splitting it is always better than trimming the requirements out of it

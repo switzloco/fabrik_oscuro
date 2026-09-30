@@ -1,5 +1,14 @@
 # Next steps to submission
 
+**Update Sep 30, after [rehearsal 2](2026-09-29-toy-all-stages.md):** the band built all
+four toy stages from one dispatch, and every stage passes the organizers' suites. The one
+human message was needed because **the Claude plan's usage limit stopped the Architect**.
+The toy alone used 48 M tokens (about $37 at list prices). Pocketful's specs are many times
+larger, so on the current plan a submitted run will hit that limit, and no mandate can
+recover from it. **Deciding how the seats are billed for the submitted run is now the most
+important open decision:** API keys (`--runtime-auth api_key` when a seat is created), or a
+plan whose limits a full run cannot reach. Measure a pocketful development run first.
+
 Written Sep 27 after rehearsal 1. Submissions close **Mon Oct 5, 23:59 PDT**; everything
 below aims to submit a day early.
 
