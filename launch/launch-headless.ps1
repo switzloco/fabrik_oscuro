@@ -52,10 +52,13 @@ $Seats = @(
 # Practice seats run cheaper models under their own names and state file, so a
 # rehearsal never touches the seats a submitted run uses. They are never graded, so
 # their Model: lines are allowed to disagree with the mandates.
+# A model named "opencode/<id>" runs on OpenCode instead of Claude Code.
 $PracticeModels = @{
-    "architect" = "claude-sonnet-5"; "builder" = "claude-sonnet-5"
-    "verifier" = "claude-opus-5"; "spec-auditor" = "claude-sonnet-5"
+    "architect" = "claude-sonnet-5"; "builder" = "claude-opus-5"
+    "verifier" = "claude-sonnet-5"; "spec-auditor" = "claude-sonnet-5"
 }
+# The OpenCode desktop app ships its own CLI; an older npm copy cannot read its data.
+$OpenCodeCli = Join-Path $env:APPDATA "ai.opencode.desktop\cli\2.0.21\opencode-cli.exe"
 if ($Practice) {
     foreach ($seat in $Seats) {
         $seat.Model   = $PracticeModels[$seat.Name]
@@ -119,17 +122,21 @@ foreach ($seat in $Seats) {
     }
 
     Write-Host "Creating seat: $handle ($($seat.Model)) ..."
-    $result = Invoke-Jam @(
+    if ($seat.Model -like "opencode/*") {
+        if (-not (Test-Path $OpenCodeCli)) { throw "OpenCode CLI not found: $OpenCodeCli" }
+        $runtime = @("--transport", "opencode", "--runtime-auth", "inherit", "--spawn-command", $OpenCodeCli)
+    } else {
+        $runtime = @("--transport", "claude-code-cli", "--runtime-auth", "subscription")
+    }
+    $result = Invoke-Jam (@(
         "agent", "create",
         "--session", $seat.Session,
-        "--transport", "claude-code-cli",
         "--name", $seat.Name,
-        "--runtime-auth", "subscription",
         "--runtime-model", $seat.Model,
         "--cwd", $Workspace,
         "--instructions-file", (Join-Path $RepoRoot $seat.Mandate),
         "--json"
-    )
+    ) + $runtime)
 
     if ($result.ExitCode -eq 0) {
         $agentId = ($result.Output | ConvertFrom-Json).created.peer.agent_id

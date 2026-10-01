@@ -17,6 +17,16 @@ message. A script that restarts the stalled seat after the reset may keep a subm
 run autonomous on the plan. Still to check: whether the organizers count a restart as
 steering, and whether a restarted Architect resumes as cleanly.
 
+**Update Oct 1, free models through OpenCode:** signed in to OpenCode Zen, three free
+models answered a spec question correctly (`nemotron-3-ultra-free` in 5 s,
+`big-pickle` 12 s, `mimo-v2.6-flash-free` 58 s; `nemotron-3.5-lightning-free` never
+answered). None can be a seat yet: Band's `opencode` transport times out on the ACP
+handshake after 30 s every time, although `opencode-cli acp` answers `initialize` in
+0.4 s when run by hand, and Band's generic `acp` transport refuses owner instructions,
+so a seat would run without its mandate. The launch script still accepts
+`opencode/<model>` for a practice seat once Band fixes this. Worth reporting to Band.
+`launch/recover-after-limit.ps1` now automates the restart-after-reset recovery.
+
 Written Sep 27 after rehearsal 1. Submissions close **Mon Oct 5, 23:59 PDT**; everything
 below aims to submit a day early.
 
