@@ -9,6 +9,14 @@ recover from it. **Deciding how the seats are billed for the submitted run is no
 important open decision:** API keys (`--runtime-auth api_key` when a seat is created), or a
 plan whose limits a full run cannot reach. Measure a pocketful development run first.
 
+**Update Sep 30 evening, pocketful stage 1 practice run:** the Verifier hit the shared
+plan's limit at 02:22 UTC. At 02:31, after the reset, `jam restart --as <seat>` alone
+brought it back: it resumed its interrupted work 25 seconds later with **no message
+posted to the room**. Recovering from a usage limit therefore does not need a human
+message. A script that restarts the stalled seat after the reset may keep a submitted
+run autonomous on the plan. Still to check: whether the organizers count a restart as
+steering, and whether a restarted Architect resumes as cleanly.
+
 Written Sep 27 after rehearsal 1. Submissions close **Mon Oct 5, 23:59 PDT**; everything
 below aims to submit a day early.
 
@@ -109,3 +117,46 @@ development run, and scale from real numbers rather than this guess.
    > the recipient was never woken, so the room stalled until a human intervened. Expected:
    > a staged disposition survives an errored turn end, or the failure is surfaced to the
    > room. Room `b30e8b6e-8a43-4a51-84e0-60ba86ff99dd`, Sep 26 22:30:57–22:31:08 UTC.
+
+## Long term: a longer assembly line (after the hackathon)
+
+An outside suggestion (Derrick Meade, Sep 30) is to split the four broad seats into
+narrower specialists, each handed only the context its step needs: a Requirements
+Analyst that turns the brief into a structured specification, an Architect, a Test
+Engineer writing tests before implementation, a Builder, a Static Analyzer, a Verifier
+that runs the harness, and a Spec Auditor checking the result against the structured
+specification. The claim is that narrower seats need smaller contexts, so more seats can
+cost fewer tokens.
+
+Not for this entry. The rubric does not score seat count, every new seat is a new
+place for a stall, and five days is not enough to rehearse a new shape. Parts of it
+are worth testing afterwards, because they target the measured cost:
+
+| Idea | Fits this factory? | What to measure first |
+|---|---|---|
+| Scope each handoff to what the receiver needs | Yes. Handoffs carry the whole spec because a seat reads only its mentions. A structured spec with requirement ids would let a handoff carry only the requirements an item touches | Per-seat tokens in `band usage`; the Architect is the largest |
+| A Test Engineer writing checks from the spec before the Builder starts | Yes. It strengthens "checks come from the spec, never the code" | Whether review then catches real defects (rehearsal 2: it changed the record once, the code never) |
+| Reports that summarise failures instead of pasting logs | Already the Verifier's report format; confirm it holds on pocketful | Size of Verifier → Builder messages |
+| A retry cap: after N rejections of one item, escalate to the Architect | Yes, as a mandate rule. Not seen yet, but cheap insurance against a fix loop | Rejections per item in a pocketful run |
+| Deterministic checks (lint, vocabulary scan, build) before a model reviews | Yes, as commands the Verifier runs first | Verifier turns spent on failures a linter would catch |
+
+Parts that do not apply: the suggestion assumes a LangGraph state object and "JEV"
+merge gates. This factory has neither. Seats are Claude Code sessions routed by Band
+mentions, so "state scoping" here means what each handoff message contains. Its model
+names are also out of date.
+
+## Anti-sycophancy and friction measures (post-hackathon)
+
+Multi-agent systems drift toward agreement over time. The current design has safeguards
+(independent Verifier, read-only Spec Auditor, evidence-based gates), but these optional
+strengthens prevent echo chambers in later runs:
+
+| Measure | Why it matters | Implementation cost | Prerequisite |
+|---------|---|---|---|
+| **Harden Verifier output to exit codes** | Currently allows "failure report" prose. Strengthen to: exit code determines verdict only; report raw diff/traceback; no prose negotiation. | One mandate sentence | Harness already captures exit codes |
+| **Deterministic loop-breaking in Architect** | Currently Architect manually patrols for stalled seats. Add: track rejections per item; after 3rd resubmission on same failure class, record blocker and halt that milestone. | One mandate rule | None |
+| **Adversarial role deepening** | Verifier already "probes beyond happy path"; could add explicit metric: "Your only measure of success is finding a flaw. Approve only when zero failures remain." | Rewording in Verifier mandate | None |
+| **Model diversity** | Current: Opus (Architect/Builder), Sonnet (Verifier/Auditor). Could rotate in Haiku or Claude 5 for one seat to reduce groupthink. | None (policy choice) | Measure token cost first |
+
+Strongest ROI: loop-breaking (cheap, directly addresses observed stalls) and Verifier exit-code hardening
+(removes prose wiggle room). Hold model diversity pending cost measurements.

@@ -10,7 +10,7 @@ secrets/
 # Local Jam / Claude Code state
 .jam/
 .claude/settings.local.json
-launch/.factory-state.json
+launch/.factory-state*.json
 
 # OS and editor
 .DS_Store

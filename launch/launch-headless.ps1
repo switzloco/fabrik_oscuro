@@ -31,13 +31,13 @@
 
 param(
     [string]$Workspace = "C:\dev\darkfactory",
-    [switch]$NewRoom
+    [switch]$NewRoom,
+    [switch]$Practice
 )
 
 $ErrorActionPreference = "Stop"
 
 $RepoRoot  = Split-Path -Parent $PSScriptRoot
-$StateFile = Join-Path $PSScriptRoot ".factory-state.json"
 
 if (-not (Test-Path $Workspace)) { throw "Workspace not found: $Workspace" }
 $Workspace = (Resolve-Path $Workspace).Path
@@ -48,6 +48,25 @@ $Seats = @(
     @{ Name = "verifier";     Session = "factory-verifier";     Model = "claude-sonnet-5";  Mandate = "mandates/verifier.md" }
     @{ Name = "spec-auditor"; Session = "factory-spec-auditor"; Model = "claude-sonnet-5";  Mandate = "mandates/spec-auditor.md" }
 )
+
+# Practice seats run cheaper models under their own names and state file, so a
+# rehearsal never touches the seats a submitted run uses. They are never graded, so
+# their Model: lines are allowed to disagree with the mandates.
+$PracticeModels = @{
+    "architect" = "claude-sonnet-5"; "builder" = "claude-sonnet-5"
+    "verifier" = "claude-opus-5"; "spec-auditor" = "claude-sonnet-5"
+}
+if ($Practice) {
+    foreach ($seat in $Seats) {
+        $seat.Model   = $PracticeModels[$seat.Name]
+        $seat.Session = "practice-$($seat.Name)"
+        $seat.Name    = "practice-$($seat.Name)"
+    }
+    $StateFile = Join-Path $PSScriptRoot ".factory-state.practice.json"
+} else {
+    $StateFile = Join-Path $PSScriptRoot ".factory-state.json"
+}
+$Architect = $Seats[0].Name
 
 function Invoke-Jam {
     param([string[]]$JamArgs)
@@ -61,11 +80,12 @@ foreach ($seat in $Seats) {
     $path = Join-Path $RepoRoot $seat.Mandate
     if (-not (Test-Path $path)) { throw "Mandate missing: $path" }
     $declared = (Select-String -Path $path -Pattern '^Model:\s*(\S+)' | Select-Object -First 1).Matches.Groups[1].Value
-    if ($declared -ne $seat.Model) {
+    if ($declared -ne $seat.Model -and -not $Practice) {
         throw "$($seat.Mandate) declares Model: $declared but this script creates $($seat.Model). Gate 1 requires them to agree."
     }
 }
-Write-Host "Mandates agree with the models this script creates."
+if ($Practice) { Write-Host "Practice seats: mandate Model: lines not enforced." }
+else { Write-Host "Mandates agree with the models this script creates." }
 
 # --- load or init local state -------------------------------------------------
 
@@ -126,7 +146,7 @@ foreach ($seat in $Seats) {
 
 # --- create or reuse the shared chat -------------------------------------------
 
-$ArchitectHandle = "$Owner/architect"
+$ArchitectHandle = "$Owner/$Architect"
 
 if ($State.room_chat_id -and -not $NewRoom) {
     $ChatId = $State.room_chat_id
@@ -160,7 +180,9 @@ $toAdd = $wanted | Where-Object { $present -notcontains $_ }
 if ($toAdd.Count -gt 0) {
     Write-Host "Adding participants: $($toAdd -join ', ')"
     $result = Invoke-Jam (@("chat", "add", $ChatId) + $toAdd + @("--as", $ArchitectHandle))
-    if ($result.ExitCode -ne 0) { throw "jam chat add failed:`n$($result.Output)" }
+    # Band 0.4.12 can add every participant and still fail to decode its own reply.
+    # The re-read below is the real check, so a failed add is only a warning here.
+    if ($result.ExitCode -ne 0) { Write-Warning "jam chat add reported:`n$($result.Output)" }
 } else {
     Write-Host "All participants already present."
 }
@@ -186,6 +208,6 @@ Write-Host "Seat handles, for the roster in the dispatch:"
 foreach ($seat in $Seats) { Write-Host "  $Owner/$($seat.Name)" }
 Write-Host ""
 Write-Host "Dispatch with:"
-Write-Host "  jam room send $ChatId `"@architect <your brief>`" --mention $($State.seats['architect'])"
+Write-Host "  jam room send $ChatId `"@$Architect <your brief>`" --mention $($State.seats[$Architect])"
 Write-Host "Watch with:"
 Write-Host "  jam room messages $ChatId"
