@@ -20,12 +20,11 @@ steering, and whether a restarted Architect resumes as cleanly.
 **Update Oct 1, free models through OpenCode:** signed in to OpenCode Zen, three free
 models answered a spec question correctly (`nemotron-3-ultra-free` in 5 s,
 `big-pickle` 12 s, `mimo-v2.6-flash-free` 58 s; `nemotron-3.5-lightning-free` never
-answered). None can be a seat yet: Band's `opencode` transport times out on the ACP
-handshake after 30 s every time, although `opencode-cli acp` answers `initialize` in
-0.4 s when run by hand, and Band's generic `acp` transport refuses owner instructions,
-so a seat would run without its mandate. The launch script still accepts
-`opencode/<model>` for a practice seat once Band fixes this. Worth reporting to Band.
-`launch/recover-after-limit.ps1` now automates the restart-after-reset recovery.
+answered). **Fixed Oct 1:** Band's `opencode` transport timed out on the ACP handshake because a custom
+`--spawn-command` drops the default `acp` argument, so OpenCode started its interactive
+screen instead. Adding `--spawn-arg acp` fixes it: a seat on `nemotron-3-ultra-free`
+answered its readiness check and stated its Spec Auditor mandate correctly. The launch
+script now passes it. Next: OpenCode Go models as a non-Claude Verifier.
 
 Written Sep 27 after rehearsal 1. Submissions close **Mon Oct 5, 23:59 PDT**; everything
 below aims to submit a day early.

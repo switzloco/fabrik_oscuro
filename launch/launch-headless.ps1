@@ -124,7 +124,7 @@ foreach ($seat in $Seats) {
     Write-Host "Creating seat: $handle ($($seat.Model)) ..."
     if ($seat.Model -like "opencode/*") {
         if (-not (Test-Path $OpenCodeCli)) { throw "OpenCode CLI not found: $OpenCodeCli" }
-        $runtime = @("--transport", "opencode", "--runtime-auth", "inherit", "--spawn-command", $OpenCodeCli)
+        $runtime = @("--transport", "opencode", "--runtime-auth", "inherit", "--spawn-command", $OpenCodeCli, "--spawn-arg", "acp")
     } else {
         $runtime = @("--transport", "claude-code-cli", "--runtime-auth", "subscription")
     }
