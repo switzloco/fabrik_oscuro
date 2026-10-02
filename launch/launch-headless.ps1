@@ -52,10 +52,10 @@ $Seats = @(
 # Practice seats run cheaper models under their own names and state file, so a
 # rehearsal never touches the seats a submitted run uses. They are never graded, so
 # their Model: lines are allowed to disagree with the mandates.
-# A model named "opencode/<id>" runs on OpenCode instead of Claude Code.
+# A model named "opencode/<id>" or "opencode-go/<id>" runs on OpenCode instead of Claude Code.
 $PracticeModels = @{
-    "architect" = "claude-sonnet-5"; "builder" = "claude-opus-5"
-    "verifier" = "claude-sonnet-5"; "spec-auditor" = "claude-sonnet-5"
+    "architect" = "claude-sonnet-5"; "builder" = "claude-sonnet-5"
+    "verifier" = "opencode/kimi-k3"; "spec-auditor" = "opencode/kimi-k3"
 }
 # The OpenCode desktop app ships its own CLI; an older npm copy cannot read its data.
 $OpenCodeCli = Join-Path $env:APPDATA "ai.opencode.desktop\cli\2.0.21\opencode-cli.exe"
@@ -70,6 +70,17 @@ if ($Practice) {
     $StateFile = Join-Path $PSScriptRoot ".factory-state.json"
 }
 $Architect = $Seats[0].Name
+
+# A new room's participant list is briefly unstable ("participant cache changed
+# repeatedly"), so read it with a few retries.
+function Get-Participants([string]$Chat, [string]$As) {
+    for ($try = 1; $try -le 5; $try++) {
+        $r = Invoke-Jam @("chat", "participants", $Chat, "--as", $As)
+        if ($r.ExitCode -eq 0) { return $r }
+        Start-Sleep -Seconds (2 * $try)
+    }
+    throw "jam chat participants failed:`n$($r.Output)"
+}
 
 function Invoke-Jam {
     param([string[]]$JamArgs)
@@ -122,7 +133,7 @@ foreach ($seat in $Seats) {
     }
 
     Write-Host "Creating seat: $handle ($($seat.Model)) ..."
-    if ($seat.Model -like "opencode/*") {
+    if ($seat.Model -like "opencode*/*") {
         if (-not (Test-Path $OpenCodeCli)) { throw "OpenCode CLI not found: $OpenCodeCli" }
         $runtime = @("--transport", "opencode", "--runtime-auth", "inherit", "--spawn-command", $OpenCodeCli, "--spawn-arg", "acp")
     } else {
@@ -170,8 +181,7 @@ if ($State.room_chat_id -and -not $NewRoom) {
 
 # --- ensure everyone is a participant -------------------------------------------
 
-$result = Invoke-Jam @("chat", "participants", $ChatId, "--as", $ArchitectHandle)
-if ($result.ExitCode -ne 0) { throw "jam chat participants failed:`n$($result.Output)" }
+$result = Get-Participants $ChatId $ArchitectHandle
 $currentParticipants = $result.Output
 
 # Compare whole handles, not substrings. The bare owner handle is a prefix of every
@@ -196,8 +206,7 @@ if ($toAdd.Count -gt 0) {
 
 # Re-read and confirm, rather than trusting the add. A missing human is the failure
 # that shows up much later as an unexplained HTTP 404 from `jam room send`.
-$result = Invoke-Jam @("chat", "participants", $ChatId, "--as", $ArchitectHandle)
-if ($result.ExitCode -ne 0) { throw "jam chat participants failed:`n$($result.Output)" }
+$result = Get-Participants $ChatId $ArchitectHandle
 $present = $result.Output -split "`r?`n" |
     ForEach-Object { ($_.Trim() -split '\s+')[0] } |
     Where-Object { $_ }
