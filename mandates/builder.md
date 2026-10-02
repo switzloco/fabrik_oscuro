@@ -1,5 +1,5 @@
 Harness: Claude Code
-Model: claude-opus-5
+Model: claude-sonnet-5
 
 # Mandate: Builder
 

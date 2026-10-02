@@ -43,10 +43,10 @@ if (-not (Test-Path $Workspace)) { throw "Workspace not found: $Workspace" }
 $Workspace = (Resolve-Path $Workspace).Path
 
 $Seats = @(
-    @{ Name = "architect";    Session = "factory-architect";    Model = "claude-opus-5";    Mandate = "mandates/architect.md" }
-    @{ Name = "builder";      Session = "factory-builder";      Model = "claude-opus-5";    Mandate = "mandates/builder.md" }
-    @{ Name = "verifier";     Session = "factory-verifier";     Model = "claude-sonnet-5";  Mandate = "mandates/verifier.md" }
-    @{ Name = "spec-auditor"; Session = "factory-spec-auditor"; Model = "claude-sonnet-5";  Mandate = "mandates/spec-auditor.md" }
+    @{ Name = "architect";    Session = "factory-architect";    Model = "claude-sonnet-5";  Mandate = "mandates/architect.md" }
+    @{ Name = "builder";      Session = "factory-builder";      Model = "claude-sonnet-5";  Mandate = "mandates/builder.md" }
+    @{ Name = "verifier";     Session = "factory-verifier";     Model = "opencode/kimi-k3"; Mandate = "mandates/verifier.md" }
+    @{ Name = "spec-auditor"; Session = "factory-spec-auditor"; Model = "opencode/kimi-k3"; Mandate = "mandates/spec-auditor.md" }
 )
 
 # Practice seats run cheaper models under their own names and state file, so a

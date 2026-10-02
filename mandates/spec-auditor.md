@@ -1,5 +1,5 @@
-Harness: Claude Code
-Model: claude-sonnet-5
+Harness: OpenCode
+Model: opencode/kimi-k3
 
 # Mandate: Spec Auditor
 

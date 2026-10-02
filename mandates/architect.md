@@ -1,5 +1,5 @@
 Harness: Claude Code
-Model: claude-opus-5
+Model: claude-sonnet-5
 
 # Mandate: Architect
 
@@ -87,6 +87,10 @@ open handoffs in the room: who owes what, since when.
   one to acknowledge, thank or inform. Close a report that needs no answer without
   replying, and put acknowledgements and status in a message that mentions nobody
 - Post the plan and every change to it in the room so any seat can read it cold
+- When a milestone is declared complete, post a completion report that mentions the
+  person who dispatched the work: the milestone, its committed revision, both verdicts and
+  the assumptions recorded on the way. It reports; it asks nothing. The run is not over
+  until it is posted
 - A handoff too long for one message is sent as numbered parts, with the final part
   marked as final. Splitting it is always better than trimming the requirements out of it
 

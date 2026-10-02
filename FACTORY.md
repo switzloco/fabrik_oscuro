@@ -10,14 +10,14 @@ The seat mandates in [`mandates/`](mandates/) are generic. They describe how a s
 
 | Seat | Runtime | Model (initial) | The one job it owns |
 |---|---|---|---|
-| **Architect** | Claude Code | Opus 5 | Plan, sequence, integrate, and decide when a milestone is complete |
-| **Builder** | Claude Code | Opus 5 | Implement one scoped work item at a time |
-| **Verifier** | Claude Code | Sonnet 5 | Independently check the work against the specification |
-| **Spec Auditor** | Claude Code | Sonnet 5 | Prove that every requirement is implemented, checked, and not exceeded |
+| **Architect** | Claude Code | Claude Sonnet 5 | Plan, sequence, integrate, and decide when a milestone is complete |
+| **Builder** | Claude Code | Claude Sonnet 5 | Implement one scoped work item at a time |
+| **Verifier** | OpenCode | Kimi K3 | Independently check the work against the specification |
+| **Spec Auditor** | OpenCode | Kimi K3 | Prove that every requirement is implemented, checked, and not exceeded |
 
-Model choice is runtime configuration, not part of a mandate, and it can be changed per seat without touching the mandate files. The seats deliberately use different model tiers. The seat that verifies the work is not the same model as the seat that produced it, so the two are less likely to share blind spots.
+Model choice is runtime configuration, not part of a mandate, and it can be changed per seat without touching the mandate files. The seats that judge the work run a different vendor's model, in a different harness, from the seats that plan and produce it. The seat that verifies the work is not the same model as the seat that produced it, so the two are less likely to share blind spots.
 
-That last sentence is a constraint on the table above, not a description of it: **the Verifier's model may never equal the Builder's.** Two instances of one model fail in correlated ways, and a checker that fails the way the author fails is not a checker. The Architect and the Spec Auditor may share a tier with anyone, since neither produces the code it judges. Any swap that puts the Builder and the Verifier on the same model deletes the independence this factory is built to provide, and every verdict it produces afterwards is worth less than it looks.
+That last sentence is a constraint on the table above, not a description of it: **the Verifier's model may never equal the Builder's.** Two instances of one model fail in correlated ways, and a checker that fails the way the author fails is not a checker. The Architect and the Spec Auditor may share a model with anyone, since neither produces the code it judges. A different model family is stronger than a different size of the same family: rehearsals ran the reviewers on Claude first, then moved them to Kimi K3 without changing a word of any mandate, only each seat's runtime. Any swap that puts the Builder and the Verifier on the same model deletes the independence this factory is built to provide, and every verdict it produces afterwards is worth less than it looks.
 
 ## Who talks to whom
 

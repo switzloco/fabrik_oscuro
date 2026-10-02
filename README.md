@@ -29,12 +29,12 @@ earlier folder claims nothing, which is why they are not all copies of the final
 
 | Seat | Harness | Model | The one job it owns |
 |---|---|---|---|
-| Architect | Claude Code | `claude-opus-5` | Plan, sequence, integrate, decide when a stage is complete |
-| Builder | Claude Code | `claude-opus-5` | Implement one scoped work item at a time |
-| Verifier | Claude Code | `claude-sonnet-5` | Independently check the work against the specification |
-| Spec Auditor | Claude Code | `claude-sonnet-5` | Prove every requirement is implemented, checked, and not exceeded |
+| Architect | Claude Code | `claude-sonnet-5` | Plan, sequence, integrate, decide when a stage is complete |
+| Builder | Claude Code | `claude-sonnet-5` | Implement one scoped work item at a time |
+| Verifier | OpenCode | `opencode/kimi-k3` | Independently check the work against the specification |
+| Spec Auditor | OpenCode | `opencode/kimi-k3` | Prove every requirement is implemented, checked, and not exceeded |
 
-The Verifier never runs the Builder's model. Two instances of one model fail in
+The Verifier never runs the Builder's model; here it does not even run the same vendor's. Two instances of one model fail in
 correlated ways, and a checker that fails the way the author fails is not a checker.
 [FACTORY.md](FACTORY.md) states that as a constraint on the table rather than a
 description of it.
