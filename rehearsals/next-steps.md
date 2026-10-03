@@ -26,6 +26,14 @@ screen instead. Adding `--spawn-arg acp` fixes it: a seat on `nemotron-3-ultra-f
 answered its readiness check and stated its Spec Auditor mandate correctly. The launch
 script now passes it. Next: OpenCode Go models as a non-Claude Verifier.
 
+**Update Oct 2, OpenCode Go connected & token optimization plan:** OpenCode Console is authenticated and verified with global CLI shims (`opencode v2.0.21`). All OpenCode Go models (`opencode-go/kimi-k3`, `opencode-go/qwen3.8-max`, `opencode-go/glm-5.3`, `opencode-go/deepseek-v4-pro`) are available via ACP.
+Research into token exhaustion confirmed Claude Code does not support Band's proactive `compact_at_tokens`, meaning token reduction must come from turn reduction and input containment:
+1. Stop Builder `Task*` bookkeeping via mandate negative rule (saves ~105 calls, ~42M tokens).
+2. Direct Builder <-> Verifier pipeline eliminates Architect relay wakes (saves ~32M tokens).
+3. Tail test/build command outputs (`| tail -n 25`) to prevent context blowup.
+4. Move Verifier to OpenCode Go (`opencode-go/kimi-k3` or `qwen3.8-max`), completely offloading the Verifier from the Claude 5-hour quota window.
+With these 4 changes, the submitted run is projected to drop from ~150M tokens to ~35M tokens, easily finishing within quota. We are clear to proceed.
+
 Written Sep 27 after rehearsal 1. Submissions close **Mon Oct 5, 23:59 PDT**; everything
 below aims to submit a day early.
 

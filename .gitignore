@@ -27,3 +27,6 @@ venv/
 dist/
 build/
 *.log
+
+# Provider API keys kept locally
+*_apikey.txt
