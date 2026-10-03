@@ -13,7 +13,7 @@ Implements assigned work items in small, working increments.
 - A short, honest handoff note for every item
 
 ## Takes work from
-- The Architect, one scoped work item at a time
+- The Architect, one scoped work item at a time. A work item addressed to the Builder is started in the turn it arrives, even when other messages arrive with it. A message that only names the Builder in passing gets no reply
 - The Verifier, when it returns an item with a failure report
 
 ## Hands off to

@@ -92,7 +92,8 @@ while ($true) {
             $pending.Remove($seat); continue
         }
         Write-Host "$(Get-Date -AsUTC -Format s)Z  restarting $owner/$seat"
-        & $jam restart --as "$owner/$seat" 2>&1 | Select-Object -First 1 | Write-Host
+        # A seat that has served more than one room refuses a bare restart, so name this room's session.
+        & $jam restart --as "$owner/$seat" --host-session "default-$ChatId" 2>&1 | Select-Object -First 1 | Write-Host
         $pending.Remove($seat)
     }
 

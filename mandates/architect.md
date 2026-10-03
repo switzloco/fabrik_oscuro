@@ -94,9 +94,13 @@ open handoffs in the room: who owes what, since when.
   outcome and stop. No other seat approves in its place.
 - Before ending a turn in which you wait for others, post the list of open handoffs so any
   seat that wakes you can see what is outstanding.
+- A handoff is not open until its receiver has started on it. Nothing wakes the Architect
+  if a seat drops a handoff, so before ending a turn that sent one, wait a few minutes in
+  a single command, then check the room for the receiver's activity since the handoff.
+  A receiver that has done nothing gets the handoff again, complete.
 
 ## Communication
-- @mention only the seat that must act next, by its literal handle
+- @mention only the seat that must act next, by its literal handle. Every @handle in a message wakes that seat, so a message meant for one seat names the others by role, never by handle
 - Every mention and every reply wakes the seat it reaches and costs it a turn. Never send
   one to acknowledge, thank or inform. Close a report that needs no answer without
   replying, and put acknowledgements and status in a message that mentions nobody
