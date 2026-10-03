@@ -137,8 +137,12 @@ function Get-RuntimeArgs($seat) {
         }
         "Codex" {
             if (-not (Get-Command codex -ErrorAction SilentlyContinue)) { throw "Codex CLI not on PATH. npm install -g @openai/codex, then codex login." }
+            # Headless: nobody is there to approve a command, and the Builder needs
+            # Docker and the network, which Codex's workspace sandbox withholds.
             return @("--transport", "codex-app-server", "--codex-channel", "stdio",
-                     "--runtime-auth", "inherit", "--runtime-compact-at", "$CompactWindow")
+                     "--runtime-auth", "inherit", "--runtime-compact-at", "$CompactWindow",
+                     "--runtime-effort", "high", "--runtime-approval", "never",
+                     "--runtime-sandbox", "danger-full-access")
         }
         default { throw "$($seat.Mandate): unknown Harness: $($seat.Harness)" }
     }

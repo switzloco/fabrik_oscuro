@@ -11,7 +11,7 @@ The seat mandates in [`mandates/`](mandates/) are generic. They describe how a s
 | Seat | Runtime | Model (initial) | The one job it owns |
 |---|---|---|---|
 | **Architect** | Claude Code | Claude Sonnet 5 | Plan, sequence, integrate, and decide when a milestone is complete |
-| **Builder** | Claude Code | Claude Sonnet 5 | Implement one scoped work item at a time |
+| **Builder** | Codex | GPT-6 Luna | Implement one scoped work item at a time |
 | **Verifier** | OpenCode | Kimi K3 | Independently check the work against the specification |
 | **Spec Auditor** | OpenCode | Kimi K3 | Prove that every requirement is implemented, checked, and not exceeded |
 

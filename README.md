@@ -30,7 +30,7 @@ earlier folder claims nothing, which is why they are not all copies of the final
 | Seat | Harness | Model | The one job it owns |
 |---|---|---|---|
 | Architect | Claude Code | `claude-sonnet-5` | Plan, sequence, integrate, decide when a stage is complete |
-| Builder | Claude Code | `claude-sonnet-5` | Implement one scoped work item at a time |
+| Builder | Codex | `gpt-6-luna` | Implement one scoped work item at a time |
 | Verifier | OpenCode | `opencode/kimi-k3` | Independently check the work against the specification |
 | Spec Auditor | OpenCode | `opencode/kimi-k3` | Prove every requirement is implemented, checked, and not exceeded |
 
