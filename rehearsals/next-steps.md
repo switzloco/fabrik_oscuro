@@ -26,13 +26,27 @@ screen instead. Adding `--spawn-arg acp` fixes it: a seat on `nemotron-3-ultra-f
 answered its readiness check and stated its Spec Auditor mandate correctly. The launch
 script now passes it. Next: OpenCode Go models as a non-Claude Verifier.
 
-**Update Oct 2, OpenCode Go connected & token optimization plan:** OpenCode Console is authenticated and verified with global CLI shims (`opencode v2.0.21`). All OpenCode Go models (`opencode-go/kimi-k3`, `opencode-go/qwen3.8-max`, `opencode-go/glm-5.3`, `opencode-go/deepseek-v4-pro`) are available via ACP.
-Research into token exhaustion confirmed Claude Code does not support Band's proactive `compact_at_tokens`, meaning token reduction must come from turn reduction and input containment:
-1. Stop Builder `Task*` bookkeeping via mandate negative rule (saves ~105 calls, ~42M tokens).
-2. Direct Builder <-> Verifier pipeline eliminates Architect relay wakes (saves ~32M tokens).
-3. Tail test/build command outputs (`| tail -n 25`) to prevent context blowup.
-4. Move Verifier to OpenCode Go (`opencode-go/kimi-k3` or `qwen3.8-max`), completely offloading the Verifier from the Claude 5-hour quota window.
-With these 4 changes, the submitted run is projected to drop from ~150M tokens to ~35M tokens, easily finishing within quota. We are clear to proceed.
+**Update Oct 2, evening: the token budget.** The submitted run stalled at stage 3 when the
+Builder hit the plan's session limit. Its transcript shows why: 355 API calls and 110.8 M
+tokens in four hours, its context grown from 47 k to 590 k on Sonnet 5's 1 M window with
+no compaction, and about 105 of the calls spent on private task bookkeeping. The Architect
+took 40.5 M over 48 wakes, mostly relaying Builder ↔ Verifier traffic. Cost is calls times
+context size, so the factory now:
+
+1. Caps every seat's context at 150 k. Claude Code: `CLAUDE_CODE_AUTO_COMPACT_WINDOW` in
+   the workspace's `.claude/settings.json`. OpenCode: a lowered model context limit in the
+   workspace's `opencode.json` (verified: Band reported `context 12174/150000`). Codex:
+   Band's `--runtime-compact-at`, which the Claude Code and OpenCode runtimes refuse.
+2. Removes the task-list tools from Claude Code seats (`--claude-disallowed-tool`).
+3. Routes items Builder → Verifier directly, with the Verifier briefed once per milestone
+   and the Architect woken only for decisions, plus a three-return cap on fix loops.
+4. Has handoffs name specification files in the shared workspace instead of pasting them.
+5. Tells every seat to tail command output.
+
+OpenCode Go still does not work through Band: with the seat's model set to
+`opencode-go/kimi-k3`, OpenCode's database shows the turn ran on provider `opencode` (Zen).
+The reviewers stay on Zen, per token. The Codex CLI is installed for a Codex Builder
+(`codex login` needs a ChatGPT plan).
 
 Written Sep 27 after rehearsal 1. Submissions close **Mon Oct 5, 23:59 PDT**; everything
 below aims to submit a day early.

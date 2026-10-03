@@ -54,10 +54,12 @@ Stages
   symlink inside a stage folder.
 - A folder holds the answer to its own stage and no later one.
 
-Every handoff carries the complete requirements as text: the task, the whole
-specification of the stage, and the earlier stages' requirements that still apply. A
-seat cannot read this message or any other. Split a long handoff into numbered parts,
-the last marked final, rather than trimming it.
+Every handoff gives the receiver the complete requirements it works to. The specification
+files above are on disk in the shared workspace, so a handoff names the files and the
+exact sections that apply (for stage N, its own specification and the earlier stages'
+requirements that still apply) instead of pasting them. A seat cannot read this message
+or any other, so everything else it needs (the task, acceptance criteria, recorded
+assumptions) travels in the handoff itself.
 
 Checking
 - Docker is available. The Verifier builds each stage from a fresh clone and runs it

@@ -48,7 +48,7 @@ and record the assumption in the room.
 
 ```
 dispatch -> Architect plans, splits into work items
-         -> Builder implements one item, builds it, runs it, hands off
+         -> Builder implements one item, builds it, runs it, hands it to the Verifier
          -> Verifier derives checks from the spec, runs them
               fail -> reproducible report back to Builder -> fix -> re-run
               pass -> verdict with evidence to Architect

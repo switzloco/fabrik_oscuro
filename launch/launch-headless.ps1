@@ -20,6 +20,25 @@
      the toy rehearsal and the graded run. A headless seat's cwd is fixed at
      creation; the dispatch names the absolute target path.
 
+  Each seat's harness and model are read from the Harness: and Model: lines of its
+  mandate, so the mandate is the only place either is written down. The harness picks
+  the transport: Claude Code, OpenCode (over ACP) or Codex (native app server).
+
+  Token budget. Every tool call re-reads the seat's whole context, so cost is calls
+  times context size. On Oct 2 a Builder with no context cap grew to 590k tokens and
+  spent 110M in four hours, a third of its calls on private task bookkeeping. So:
+  Claude Code seats compact at -CompactWindow (via the workspace's .claude/settings.json)
+  and run without the task-list tools; OpenCode seats compact there through a lowered
+  model context limit in the workspace's opencode.json; Codex seats compact natively.
+  Band's own --runtime-compact-at is refused by the Claude Code and OpenCode runtimes.
+
+.PARAMETER Reconfigure
+  Re-apply mandates and runtime settings to seats that already exist, restarting each.
+  Never pass it while a run is live on those seats.
+
+.PARAMETER CompactWindow
+  Context size, in tokens, at which a seat compacts its conversation.
+
 .PARAMETER Workspace
   Absolute path the seats work under. Must contain both the kickoff checkout and
   band-work/.
@@ -32,7 +51,9 @@
 param(
     [string]$Workspace = "C:\dev\darkfactory",
     [switch]$NewRoom,
-    [switch]$Practice
+    [switch]$Practice,
+    [switch]$Reconfigure,
+    [int]$CompactWindow = 150000
 )
 
 $ErrorActionPreference = "Stop"
@@ -43,25 +64,33 @@ if (-not (Test-Path $Workspace)) { throw "Workspace not found: $Workspace" }
 $Workspace = (Resolve-Path $Workspace).Path
 
 $Seats = @(
-    @{ Name = "architect";    Session = "factory-architect";    Model = "claude-sonnet-5";  Mandate = "mandates/architect.md" }
-    @{ Name = "builder";      Session = "factory-builder";      Model = "claude-sonnet-5";  Mandate = "mandates/builder.md" }
-    @{ Name = "verifier";     Session = "factory-verifier";     Model = "opencode/kimi-k3"; Mandate = "mandates/verifier.md" }
-    @{ Name = "spec-auditor"; Session = "factory-spec-auditor"; Model = "opencode/kimi-k3"; Mandate = "mandates/spec-auditor.md" }
+    @{ Name = "architect";    Session = "factory-architect";    Mandate = "mandates/architect.md" }
+    @{ Name = "builder";      Session = "factory-builder";      Mandate = "mandates/builder.md" }
+    @{ Name = "verifier";     Session = "factory-verifier";     Mandate = "mandates/verifier.md" }
+    @{ Name = "spec-auditor"; Session = "factory-spec-auditor"; Mandate = "mandates/spec-auditor.md" }
 )
 
-# Practice seats run cheaper models under their own names and state file, so a
-# rehearsal never touches the seats a submitted run uses. They are never graded, so
-# their Model: lines are allowed to disagree with the mandates.
-# A model named "opencode/<id>" or "opencode-go/<id>" runs on OpenCode instead of Claude Code.
-$PracticeModels = @{
-    "architect" = "claude-sonnet-5"; "builder" = "claude-sonnet-5"
-    "verifier" = "opencode/kimi-k3"; "spec-auditor" = "opencode/kimi-k3"
+function Read-MandateField([string]$Path, [string]$Field) {
+    $m = Select-String -Path $Path -Pattern "^$($Field):\s*(.+?)\s*$" | Select-Object -First 1
+    if (-not $m) { throw "$Path has no $($Field): line" }
+    $m.Matches.Groups[1].Value
 }
+foreach ($seat in $Seats) {
+    $path = Join-Path $RepoRoot $seat.Mandate
+    if (-not (Test-Path $path)) { throw "Mandate missing: $path" }
+    $seat.Harness = Read-MandateField $path "Harness"
+    $seat.Model   = Read-MandateField $path "Model"
+}
+
+# Practice seats run under their own names and state file, so a rehearsal never touches
+# the seats a submitted run uses. They are never graded, so a model listed here may
+# disagree with the mandate; an empty map runs the mandates' own models.
+$PracticeModels = @{}
 # The OpenCode desktop app ships its own CLI; an older npm copy cannot read its data.
 $OpenCodeCli = Join-Path $env:APPDATA "ai.opencode.desktop\cli\2.0.21\opencode-cli.exe"
 if ($Practice) {
     foreach ($seat in $Seats) {
-        $seat.Model   = $PracticeModels[$seat.Name]
+        if ($PracticeModels[$seat.Name]) { $seat.Model = $PracticeModels[$seat.Name] }
         $seat.Session = "practice-$($seat.Name)"
         $seat.Name    = "practice-$($seat.Name)"
     }
@@ -88,18 +117,59 @@ function Invoke-Jam {
     [PSCustomObject]@{ ExitCode = $LASTEXITCODE; Output = ($output -join "`n") }
 }
 
-# --- check each mandate's Model: line matches what we are about to create ------
+# --- runtime arguments per harness ---------------------------------------------
 
-foreach ($seat in $Seats) {
-    $path = Join-Path $RepoRoot $seat.Mandate
-    if (-not (Test-Path $path)) { throw "Mandate missing: $path" }
-    $declared = (Select-String -Path $path -Pattern '^Model:\s*(\S+)' | Select-Object -First 1).Matches.Groups[1].Value
-    if ($declared -ne $seat.Model -and -not $Practice) {
-        throw "$($seat.Mandate) declares Model: $declared but this script creates $($seat.Model). Gate 1 requires them to agree."
+# Private task lists cost a full context read per update and nobody else can see them.
+$ClaudeDisallowed = @("TaskCreate", "TaskUpdate", "TaskList", "TaskGet", "TodoWrite", "mcp__jam_tasks")
+
+function Get-RuntimeArgs($seat) {
+    switch ($seat.Harness) {
+        "Claude Code" {
+            $a = @("--transport", "claude-code-cli", "--runtime-auth", "subscription",
+                   "--claude-context-mode", "local_config")
+            foreach ($t in $ClaudeDisallowed) { $a += @("--claude-disallowed-tool", $t) }
+            return $a
+        }
+        "OpenCode" {
+            if (-not (Test-Path $OpenCodeCli)) { throw "OpenCode CLI not found: $OpenCodeCli" }
+            return @("--transport", "opencode", "--runtime-auth", "inherit",
+                     "--spawn-command", $OpenCodeCli, "--spawn-arg", "acp")
+        }
+        "Codex" {
+            if (-not (Get-Command codex -ErrorAction SilentlyContinue)) { throw "Codex CLI not on PATH. npm install -g @openai/codex, then codex login." }
+            return @("--transport", "codex-app-server", "--codex-channel", "stdio",
+                     "--runtime-auth", "inherit", "--runtime-compact-at", "$CompactWindow")
+        }
+        default { throw "$($seat.Mandate): unknown Harness: $($seat.Harness)" }
     }
 }
-if ($Practice) { Write-Host "Practice seats: mandate Model: lines not enforced." }
-else { Write-Host "Mandates agree with the models this script creates." }
+
+if ($Practice) { Write-Host "Practice seats." }
+foreach ($seat in $Seats) { Write-Host "  $($seat.Name): $($seat.Harness), $($seat.Model)" }
+
+# Claude Code reads its compaction window from the settings of the directory it runs in.
+$ClaudeDir = Join-Path $Workspace ".claude"
+New-Item -ItemType Directory -Force $ClaudeDir | Out-Null
+$SettingsFile = Join-Path $ClaudeDir "settings.json"
+$settings = if (Test-Path $SettingsFile) { Get-Content $SettingsFile -Raw | ConvertFrom-Json -AsHashtable } else { @{} }
+if (-not $settings.env) { $settings.env = @{} }
+$settings.env["CLAUDE_CODE_AUTO_COMPACT_WINDOW"] = "$CompactWindow"
+($settings | ConvertTo-Json -Depth 5) | Set-Content -Path $SettingsFile -Encoding utf8NoBOM
+Write-Host "Claude Code seats compact at $CompactWindow tokens ($SettingsFile)."
+
+# OpenCode compacts near its model's context limit, so lowering the limit in the
+# workspace's opencode.json caps it. Band's own compaction budget is Codex-only.
+$OpenCodeFile = Join-Path $Workspace "opencode.json"
+$oc = if (Test-Path $OpenCodeFile) { Get-Content $OpenCodeFile -Raw | ConvertFrom-Json -AsHashtable } else { @{ '$schema' = "https://opencode.ai/config.json" } }
+if (-not $oc.provider) { $oc.provider = @{} }
+foreach ($seat in $Seats | Where-Object { $_.Harness -eq "OpenCode" }) {
+    $provider, $modelId = $seat.Model -split '/', 2
+    if (-not $oc.provider[$provider]) { $oc.provider[$provider] = @{} }
+    if (-not $oc.provider[$provider].models) { $oc.provider[$provider].models = @{} }
+    $oc.provider[$provider].models[$modelId] = @{ limit = @{ context = $CompactWindow; output = 32000 } }
+}
+($oc | ConvertTo-Json -Depth 8) | Set-Content -Path $OpenCodeFile -Encoding utf8NoBOM
+Write-Host "OpenCode seats compact at $CompactWindow tokens ($OpenCodeFile)."
 
 # --- load or init local state -------------------------------------------------
 
@@ -127,18 +197,22 @@ Write-Host "Seat working directory: $Workspace"
 foreach ($seat in $Seats) {
     $handle = "$Owner/$($seat.Name)"
 
+    $runtime = Get-RuntimeArgs $seat
     if ($State.seats.ContainsKey($seat.Name) -and $State.seats[$seat.Name]) {
-        Write-Host "Seat known: $handle (agent_id $($State.seats[$seat.Name])) - skipping create"
+        if (-not $Reconfigure) {
+            Write-Host "Seat known: $handle (agent_id $($State.seats[$seat.Name])) - skipping (pass -Reconfigure to re-apply)"
+            continue
+        }
+        Write-Host "Reconfiguring seat: $handle ($($seat.Harness), $($seat.Model)) ..."
+        $r = Invoke-Jam @("agent", "instructions", "set", "--as", $handle, "--instructions-file", (Join-Path $RepoRoot $seat.Mandate))
+        if ($r.ExitCode -ne 0) { throw "instructions set failed for $handle`:`n$($r.Output)" }
+        $r = Invoke-Jam (@("runtime", "template", "set", "--as", $handle, "--runtime-model", $seat.Model, "--apply-and-restart") + $runtime)
+        if ($r.ExitCode -ne 0) { throw "runtime template set failed for $handle`:`n$($r.Output)" }
+        Write-Host "  re-applied and restarted"
         continue
     }
 
-    Write-Host "Creating seat: $handle ($($seat.Model)) ..."
-    if ($seat.Model -like "opencode*/*") {
-        if (-not (Test-Path $OpenCodeCli)) { throw "OpenCode CLI not found: $OpenCodeCli" }
-        $runtime = @("--transport", "opencode", "--runtime-auth", "inherit", "--spawn-command", $OpenCodeCli, "--spawn-arg", "acp")
-    } else {
-        $runtime = @("--transport", "claude-code-cli", "--runtime-auth", "subscription")
-    }
+    Write-Host "Creating seat: $handle ($($seat.Harness), $($seat.Model)) ..."
     $result = Invoke-Jam (@(
         "agent", "create",
         "--session", $seat.Session,
