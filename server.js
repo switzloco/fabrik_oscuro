@@ -12,7 +12,7 @@ function parseNumber(x){return typeof x==='number'&&Number.isSafeInteger(x);}
 function validAmount(x){return parseNumber(x)&&x>=1&&x<=1e9;}
 function clone(x){return JSON.parse(JSON.stringify(x));}
 function canonical(x){if(Array.isArray(x))return '['+x.map(canonical).join(',')+']';if(x&&typeof x==='object')return '{'+Object.keys(x).sort().map(k=>JSON.stringify(k)+':'+canonical(x[k])).join(',')+'}';return JSON.stringify(x);}
-function readBody(req){return new Promise((resolve,reject)=>{let s='';req.on('data',c=>{s+=c;if(s.length>2_000_000)reject(new Error('large'));});req.on('end',()=>{try{resolve(JSON.parse(s||''));}catch(e){reject(e);}});req.on('error',reject);});}
+function readBody(req){return new Promise((resolve,reject)=>{let s='';req.on('data',c=>{s+=c;});req.on('end',()=>{try{resolve(JSON.parse(s||''));}catch(e){reject(e);}});req.on('error',reject);});}
 function userByHandle(h){return state.users.find(u=>u.handle===h);}
 function userById(i){return state.users.find(u=>u.id===i);}
 function receipt(p,viewer){return {...p,settlement_id:p.settlement_id||null};}
