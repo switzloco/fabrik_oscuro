@@ -1,6 +1,8 @@
 # Pocketful practice run
 
-**Team:** Nick Switzer, with the `next-architect`, `next-builder`, `next-verifier`, and `next-spec-auditor` seats in the Band room.
+**Team:** Nick Switzer and the active Band seats `nicholas.switzer/next-architect`, `nicholas.switzer/next-builder`, `nicholas.switzer/pf3-verifier-codex`, and `nicholas.switzer/pf3-auditor-claude`.
+
+The current review authorities are `pf3-verifier-codex` (Codex, gpt-6-luna) and `pf3-auditor-claude` (Claude Code, claude-sonnet-5). The earlier `next-verifier` and `next-spec-auditor` seats and their original mandates remain preserved in the room/repository as historical records; they are not active approval authorities for this practice.
 
 **Track:** Pocketful.
 
@@ -9,7 +11,7 @@ This repository records the Stage 1 payments and settlements service. Stage 1 is
 ## Repository map
 
 - [`stage-1/`](stage-1/) contains the independently buildable Stage 1 service, Dockerfile, and run instructions.
-- [`mandates/`](mandates/) preserves the original seat mandates and includes the Codex Verifier and Claude Spec Auditor mandate copies for this practice run.
+- [`mandates/`](mandates/) preserves the original mandates and contains the active replacement review mandates `pf3-verifier-codex.md` and `pf3-auditor-claude.md`.
 - `room.json` is required to be the authentic full-session room download. It is not included because the Band room download was not available to this runtime; see [`FACTORY.md`](FACTORY.md).
 - Root `server.js`, `Dockerfile`, and `RUN.md` preserve the original Stage 1 service files. The `stage-1/` copy is the packaged stage deliverable.
 
