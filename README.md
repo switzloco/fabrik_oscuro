@@ -12,7 +12,7 @@ This repository records the Stage 1 payments and settlements service. Stage 1 is
 
 - [`stage-1/`](stage-1/) contains the independently buildable Stage 1 service, Dockerfile, and run instructions.
 - [`mandates/`](mandates/) preserves the original mandates and contains the active replacement review mandates `pf3-verifier-codex.md` and `pf3-auditor-claude.md`.
-- `room.json` is required to be the authentic full-session room download. It is not included because the Band room download was not available to this runtime; see [`FACTORY.md`](FACTORY.md).
+- [`room.json`](room.json) is the authentic, full-session Band export for this room. Its export metadata and unchanged source hash are recorded in [`FACTORY.md`](FACTORY.md).
 - Root `server.js`, `Dockerfile`, and `RUN.md` preserve the original Stage 1 service files. The `stage-1/` copy is the packaged stage deliverable.
 
 ## Build and run
