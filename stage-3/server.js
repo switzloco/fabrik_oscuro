@@ -176,7 +176,7 @@ function importValidateStage2(x){
 }
 function deriveOpeningBalances(z){
  const opening=Object.fromEntries(z.users.map(u=>[u.id,u.balance]));
- for(const p of z.payments){const rs=z.payment_revisions?.[p.payment_id]||[];const amount=rs.length?rs[rs.length-1].amount:p.amount;opening[p.from_user_id]+=amount;opening[p.to_user_id]-=amount;}
+ for(const p of z.payments){opening[p.from_user_id]+=p.amount;opening[p.to_user_id]-=p.amount;}
  return opening;
 }
 function importValidateStage3(x){
