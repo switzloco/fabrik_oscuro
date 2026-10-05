@@ -266,8 +266,8 @@ async function handler(req,res){const requestStartedAt=now(),url=new URL(req.url
  }
  const captureMatch=path.match(/^\/authorizations\/([^/]+)\/capture$/);
  if(req.method==='POST'&&captureMatch){let b;try{b=await readBody(req);}catch{return badBody(res);}if(!b||typeof b!=='object'||Array.isArray(b))return badBody(res);
-  const k=keyInfo(req,res,user,req.method,path,b);if(k.stop)return k.status?error(res,k.status,k.code):undefined;
   const a=state.authorizations.find(x=>x.authorization_id===captureMatch[1]);if(!a)return error(res,404,'not_found');
+  const k=keyInfo(req,res,user,req.method,path,b);if(k.stop)return k.status?error(res,k.status,k.code):undefined;
   if(a.to_user_id!==user.id)return error(res,403,'forbidden');
   if(a.status==='open'&&ledger.compareInstant(a.expires_at,now())<=0){a.status='expired';a.closed_at=a.expires_at;}if(a.status==='expired')return error(res,409,'authorization_expired');
   if(a.status!=='open')return error(res,409,'authorization_not_open');if(Object.hasOwn(b,'final')&&typeof b.final!=='boolean')return badBody(res);
