@@ -245,7 +245,10 @@
         await refreshVisible(); feedback(pay, 'pay-success', 'Payment sent. Your balance and activity are up to date.', 'success');
       } catch (err) {
         if (err instanceof ApiError) {
-          feedback(pay, 'pay-error', err.message || 'Your payment could not be sent.');
+          const message = err.code === 'insufficient_funds'
+            ? 'Not enough available balance for this payment.'
+            : err.message || 'Your payment could not be sent.';
+          feedback(pay, 'pay-error', message);
           await refreshVisible().catch(showGlobalError);
         } else feedback(pay, 'pay-uncertain', 'We could not confirm the result. Retry without changing the form to safely check the payment.', 'uncertain');
       }
