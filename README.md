@@ -1,4 +1,4 @@
-# Pocketful practice run
+# Pocketful: 2 Stages, 182 Checks Passed
 
 **Team:** Nick Switzer and the active Band seats `nicholas.switzer/next-architect`, `nicholas.switzer/next-builder`, `nicholas.switzer/pf3-verifier-codex`, and `nicholas.switzer/pf3-auditor-claude`.
 
@@ -6,7 +6,9 @@ The current review authorities are `pf3-verifier-codex` (Codex, gpt-6-luna) and 
 
 **Track:** Pocketful.
 
-This repository contains the independently approved Stage 1 payments and settlements service and the completed Stage 2 wallet and payment-authorization service. The exact service revision is `02d0b12a0cb55468540a0a2ff63ee78297a23756`; both active reviewers approved that revision. Stage 1 remains packaged independently in [`stage-1/`](stage-1/); Stage 2 carries it forward in [`stage-2/`](stage-2/) with the browser UI and authorization/capture API. This is a two-stage practice run, not a hands-off submission and not a claim of submission eligibility. The current README/FACTORY/room-log packaging revision requires fresh confirmation from both reviewers.
+This repository contains the independently approved Stage 1 payments and settlements service and the completed Stage 2 wallet and payment-authorization service. The exact service revision is `02d0b12a0cb55468540a0a2ff63ee78297a23756`; both active reviewers approved that revision. Stage 1 remains packaged independently in [`stage-1/`](stage-1/); Stage 2 carries it forward in [`stage-2/`](stage-2/) with the browser UI and authorization/capture API. This is a two-stage practice run, not a hands-off submission and not a claim of submission eligibility. Both reviewers subsequently confirmed the exact final package e17618e2. Publication preserves the reviewed service files.
+
+See [the submission overview](SUBMISSION.md), [presentation PDF](docs/Pocketful-presentation.pdf), and [recorded demo](https://switzloco.github.io/fabrik_oscuro/). The demo page contains a recorded presentation, not a hosted backend.
 
 ## Repository map
 
