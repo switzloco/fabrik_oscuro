@@ -117,8 +117,9 @@ async function handler(req,res){const url=new URL(req.url,'http://local');const 
  }
  const captureMatch=path.match(/^\/authorizations\/([^/]+)\/capture$/);
  if(req.method==='POST'&&captureMatch){let b;try{b=await readBody(req);}catch{return badBody(res);}if(!b||typeof b!=='object'||Array.isArray(b))return badBody(res);
+  const a=state.authorizations.find(x=>x.authorization_id===captureMatch[1]);if(!a)return error(res,404,'not_found');
   const k=keyInfo(req,res,user,req.method,path,b);if(k.stop)return k.status?error(res,k.status,k.code):undefined;
-  const a=state.authorizations.find(x=>x.authorization_id===captureMatch[1]);if(!a)return error(res,404,'not_found');if(a.to_user_id!==user.id)return error(res,403,'forbidden');
+  if(a.to_user_id!==user.id)return error(res,403,'forbidden');
   if(a.status==='open'&&Date.parse(a.expires_at)<=Date.now())a.status='expired';if(a.status==='expired')return error(res,409,'authorization_expired');
   if(a.status!=='open')return error(res,409,'authorization_not_open');if(Object.hasOwn(b,'final')&&typeof b.final!=='boolean')return badBody(res);
   const remaining=authRemaining(a),amount=b.amount===undefined?remaining:b.amount;if(!parseNumber(amount)||amount<1)return error(res,422,'validation_failed');if(amount>remaining)return error(res,422,'capture_exceeds_authorization');
