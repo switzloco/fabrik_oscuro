@@ -366,7 +366,7 @@
       item.append(el('div',{className:'authorization-expiry'},[
         el('span',{className:'authorization-expiry-label',text:'Expires'}),
         el('span',{className:'authorization-expiry-human',text:prettyDate(a.expires_at)}),
-        el('time',{className:'authorization-expiry-iso',testid:`authorization-expires-${a.authorization_id}`,datetime:a.expires_at,text:a.expires_at})
+        el('time',{className:'authorization-expiry-iso',testid:`authorization-expires-${a.authorization_id}`,datetime:a.expires_at,'aria-label':`Expires ${prettyDate(a.expires_at)}`,text:a.expires_at})
       ]));
       if(a.note)item.append(el('div',{className:'activity-note',text:a.note}));
       const actions=el('div',{id:`authorization-actions-${a.authorization_id}`});
