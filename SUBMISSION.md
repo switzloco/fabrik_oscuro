@@ -11,7 +11,7 @@ This submission contains the completed Stage 1 and Stage 2 services. Stages 3 an
 
 See `evidence/isolated-harness-report.json`, `FACTORY.md`, `mandates/`, and the unchanged authentic `room.json`.
 
-The PDF presentation is `docs/Pocketful-presentation.pdf`. The silent, caption-led screenshot demonstration is `docs/Pocketful-demo.mp4`. It does not yet contain the required BAND Desktop room footage.
+The PDF presentation is `docs/Pocketful-presentation.pdf`. The combined video is `docs/Pocketful-demo.mp4`: 43 seconds of actual BAND room recording showing review approvals, followed by the silent caption-led presentation. Total duration is approximately 2 minutes 48 seconds.
 
 ## Disclosure
 
