@@ -208,6 +208,7 @@ function importValidateStage3(x){
    else if(a.closed_at!==undefined&&a.closed_at!==null&&!ledger.validInstant(a.closed_at))return null;
    else if(a.status==='expired'&&!a.closed_at)a.closed_at=a.expires_at;
    else if(a.status==='captured'&&!a.closed_at){const ids=a.payment_ids||[a.payment_id].filter(Boolean);const last=z.payments.find(p=>p.payment_id===ids[ids.length-1]);if(last)a.closed_at=last.created_at;}
+   // Stage 2 exports did not record void event times; keep that history unknown rather than invent one.
    const captureRows=z.payments.filter(p=>p.authorization_id===a.authorization_id),captureIds=captureRows.map(p=>p.payment_id);
    if(captureIds.length!==a.payment_ids.length||captureIds.some((id,i)=>id!==a.payment_ids[i])||captureRows.some(p=>p.from_user_id!==a.from_user_id||p.to_user_id!==a.to_user_id||p.note!==a.note||p.visibility!==a.visibility)||captureRows.reduce((n,p)=>n+p.amount,0)!==a.captured_amount)return null;
    if(a.payment_id!==(a.payment_ids.length?a.payment_ids[a.payment_ids.length-1]:null))return null;
