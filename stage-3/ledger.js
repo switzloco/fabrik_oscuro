@@ -88,7 +88,10 @@ function heldAt(state, userId, asOf, knownAt) {
     // Old Stage 1/2 exports did not retain a void event timestamp. A closed legacy
     // hold without one is treated as a cutover record, not assigned a fabricated event.
     if (auth.status !== 'open' && !closedAt && auth.status !== 'expired') continue;
-    if (closedAt && compareInstant(closedAt, asOf) <= 0) continue;
+    // Captures and voids are learned at their event time: apply closure only
+    // when it is both effective by T and known by K. Expiry is different; its
+    // deadline is known as soon as the authorization itself is known.
+    if (closedAt && compareInstant(closedAt, asOf) <= 0 && compareInstant(closedAt, knownAt) <= 0) continue;
     if (expiresAt && compareInstant(expiresAt, asOf) <= 0) continue;
     let captured = 0;
     for (const event of captureEvents(state, auth.authorization_id)) {
@@ -114,7 +117,7 @@ function heldBefore(state, userId, at, knownAt) {
     const createdAt = auth.created_at || state.reset_at;
     if (!createdAt || compareInstant(createdAt, knownAt) > 0 || compareInstant(createdAt, at) >= 0) continue;
     if (auth.status !== 'open' && !auth.closed_at && auth.status !== 'expired') continue;
-    if (auth.closed_at && compareInstant(auth.closed_at, at) < 0) continue;
+    if (auth.closed_at && compareInstant(auth.closed_at, at) < 0 && compareInstant(auth.closed_at, knownAt) <= 0) continue;
     if (auth.expires_at && compareInstant(auth.expires_at, at) < 0) continue;
     let captured = 0;
     for (const event of captureEvents(state, auth.authorization_id)) {
