@@ -363,7 +363,11 @@
       const item=el('article',{className:'authorization-card',testid:`authorization-item-${a.authorization_id}`,attrs:{'data-status':a.status}});
       item.append(el('div',{className:'authorization-top'},[el('div',{},[el('div',{className:'request-parties',text:`${a.from_handle} reserved for ${a.to_handle}`}),el('strong',{className:'auth-amount',testid:`authorization-amount-${a.authorization_id}`,text:formatMoney(a.amount,state.me.minor_units,a.currency)})]),el('span',{className:`status-pill status-${a.status}`,text:a.status})]));
       if(a.status==='captured')item.append(el('div',{className:'captured-amount'},[el('span',{text:'Captured'}),el('strong',{testid:`authorization-captured-${a.authorization_id}`,text:formatMoney(a.captured_amount,state.me.minor_units,a.currency)})]));
-      item.append(el('time',{testid:`authorization-expires-${a.authorization_id}`,datetime:a.expires_at,text:a.expires_at}));
+      item.append(el('div',{className:'authorization-expiry'},[
+        el('span',{className:'authorization-expiry-label',text:'Expires'}),
+        el('span',{className:'authorization-expiry-human',text:prettyDate(a.expires_at)}),
+        el('time',{className:'authorization-expiry-iso',testid:`authorization-expires-${a.authorization_id}`,datetime:a.expires_at,text:a.expires_at})
+      ]));
       if(a.note)item.append(el('div',{className:'activity-note',text:a.note}));
       const actions=el('div',{id:`authorization-actions-${a.authorization_id}`});
       if(a.status==='open'&&a.to_user_id===state.me.user_id){
