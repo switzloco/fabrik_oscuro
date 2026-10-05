@@ -284,6 +284,7 @@
     bottom.append(el('section', { className: 'card' }, [el('div', { className: 'section-head' }, [el('h2', { text: 'Recent activity' }), el('span', { className: 'table-caption', text: 'Visible to you' })]), el('div', { id: 'activity-slot' }, [el('div', { className: 'loading-inline', text: 'Loading activity…' })])]));
     bottom.append(el('section', { className: 'card' }, [el('div', { className: 'section-head' }, [el('h2', { text: 'Your requests' }), el('a', { className: 'button-link', href: '/requests', text: 'View all' })]), el('div', { id: 'request-summary-slot' }, [el('div', { className: 'loading-inline', text: 'Loading requests…' })])]));
     main.append(bottom);
+    refreshVisible().catch(showGlobalError);
   }
 
   async function requestAction(request, action) {
