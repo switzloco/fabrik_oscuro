@@ -1,4 +1,4 @@
-# Pocketful: 2 Stages, 182 Checks Passed
+# Pocketful: 3 Stages, 188 Checks Passed
 
 **Team:** Nick Switzer and the active Band seats `nicholas.switzer/next-architect`, `nicholas.switzer/next-builder`, `nicholas.switzer/pf3-verifier-codex`, and `nicholas.switzer/pf3-auditor-claude`.
 
@@ -6,7 +6,12 @@ The current review authorities are `pf3-verifier-codex` (Codex, gpt-6-luna) and 
 
 **Track:** Pocketful.
 
-This repository contains the independently approved Stage 1 payments and settlements service and the completed Stage 2 wallet and payment-authorization service. The exact service revision is `02d0b12a0cb55468540a0a2ff63ee78297a23756`; both active reviewers approved that revision. Stage 1 remains packaged independently in [`stage-1/`](stage-1/); Stage 2 carries it forward in [`stage-2/`](stage-2/) with the browser UI and authorization/capture API. This is a two-stage practice run, not a hands-off submission and not a claim of submission eligibility. Both reviewers subsequently confirmed the exact final package e17618e2. Publication preserves the reviewed service files.
+This repository contains three independently approved, independently buildable Pocketful stages:
+
+- Stage 1 payments and settlements ([`stage-1/`](stage-1/)) and Stage 2 wallet UI and payment authorizations ([`stage-2/`](stage-2/)), approved at service revision `02d0b12a0cb55468540a0a2ff63ee78297a23756` and final package `e17618e2`.
+- Stage 3 statements, historical balances and payment corrections ([`stage-3/`](stage-3/)), approved by both active reviewers at exact revision `22cab66916735c3320b227b6ecd1b1d1bdc90cb2`. Two fresh-clone isolated harness runs at that revision (host and Verifier) each passed Stage 1 147/147, Stage 2 35/35 and Stage 3 6/6 with zero failures, errors or skips. Stage 1 and Stage 2 are byte-identical to the approved package.
+
+Stage 4 is not included. This is a supervised practice run, not a hands-off submission and not a claim of submission eligibility. Publication preserves the reviewed service files.
 
 See [the submission overview](SUBMISSION.md), [presentation PDF](docs/Pocketful-presentation.pdf), and [recorded demo](https://switzloco.github.io/fabrik_oscuro/). The demo page contains a recorded presentation, not a hosted backend.
 
@@ -14,6 +19,8 @@ See [the submission overview](SUBMISSION.md), [presentation PDF](docs/Pocketful-
 
 - [`stage-1/`](stage-1/) contains the independently buildable Stage 1 service, Dockerfile, and run instructions.
 - [`stage-2/`](stage-2/) contains an independently buildable Stage 2 service, local browser assets, Dockerfile, and run instructions. It builds on Stage 1 with available/held balances, authorizations, expiry, and captures.
+- [`stage-3/`](stage-3/) contains an independently buildable Stage 3 service that adds RFC 3339 historical views (`as_of`, `known_at`), statements with frozen pagination snapshots, sender-only idempotent payment corrections with historical overdraft checks, and Stage 1/2 export import.
+- [`evidence/`](evidence/) holds the Stage 2 harness report, both Stage 3 isolated harness reports, and the Stage 3 Spec Auditor report.
 - [`mandates/`](mandates/) preserves the original mandates and contains the active replacement review mandates `pf3-verifier-codex.md` and `pf3-auditor-claude.md`.
 - [`room.json`](room.json) is the unchanged authentic full-session Band export verified for this package. [`FACTORY.md`](FACTORY.md) records its metadata and hash, plus the preserved earlier export. The snapshot predates the packaging commit and later packaging confirmations.
 - Root `server.js`, `Dockerfile`, and `RUN.md` preserve the original Stage 1 service files. The `stage-1/` copy is the packaged stage deliverable.
@@ -29,4 +36,4 @@ docker run --rm -p 8080:8080 -e PORT=8080 pocketful-stage1
 
 The service listens on `0.0.0.0:8080`; use `GET /health` for readiness. See [`stage-1/RUN.md`](stage-1/RUN.md) for the same commands.
 
-For the Stage 2 service, run the corresponding commands from `stage-2/` and use the `pocketful-stage2` image tag. See [`stage-2/RUN.md`](stage-2/RUN.md).
+For Stages 2 and 3, run the corresponding commands from `stage-2/` or `stage-3/` with the `pocketful-stage2` or `pocketful-stage3` image tag. See [`stage-2/RUN.md`](stage-2/RUN.md) and [`stage-3/RUN.md`](stage-3/RUN.md).
