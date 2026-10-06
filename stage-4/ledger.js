@@ -35,8 +35,9 @@ function validInstant(value) { return instant(value) !== null; }
 
 function paymentRevisionList(state, paymentId, replacement) {
   const base = state.payment_revisions?.[paymentId] || [];
-  if (replacement && replacement.payment_id === paymentId) return [...base, replacement.revision];
-  return base;
+  const list = Array.isArray(replacement) ? replacement : (replacement ? [replacement] : []);
+  const extra = list.filter(r => r.payment_id === paymentId).map(r => r.revision);
+  return extra.length ? [...base, ...extra] : base;
 }
 
 function selectedRevision(state, paymentId, knownAt, replacement) {

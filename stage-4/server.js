@@ -26,13 +26,15 @@ function keyInfo(req,res,user,method,path,body){const key=req.headers['idempoten
 function amountRule(x){return validAmount(x);}
 function recordPaymentRevision(p){
  if(!state.payment_revisions)state.payment_revisions={};
- if(!state.payment_revisions[p.payment_id])state.payment_revisions[p.payment_id]=[{revision:1,amount:p.amount,effective_at:p.created_at,recorded_at:p.created_at,reason:''}];
+ if(!state.payment_revisions[p.payment_id])state.payment_revisions[p.payment_id]=[{revision:1,amount:p.amount,effective_at:p.created_at,recorded_at:p.created_at,reason:'',correction_batch_id:null}];
  if(!state.last_recorded_at||ledger.compareInstant(p.created_at,state.last_recorded_at)>0)state.last_recorded_at=p.created_at;
 }
-function payment(from,to,amount,note,visibility,request_id=null,settlement_id=null,created_at=now(),authorization_id=null){
+function payment(from,to,amount,note,visibility,request_id=null,settlement_id=null,created_at=now(),authorization_id=null,refund_of=null){
  from.balance-=amount;to.balance+=amount;
- const p={payment_id:id('p'),from_user_id:from.id,from_handle:from.handle,to_user_id:to.id,to_handle:to.handle,amount,currency:state.currency,note,visibility,request_id,created_at,settlement_id,authorization_id};state.payments.push(p);recordPaymentRevision(p);return p;
+ const p={payment_id:id('p'),from_user_id:from.id,from_handle:from.handle,to_user_id:to.id,to_handle:to.handle,amount,currency:state.currency,note,visibility,request_id,created_at,settlement_id,authorization_id,refund_of};state.payments.push(p);recordPaymentRevision(p);return p;
 }
+function currentAmount(paymentId){const revs=state.payment_revisions[paymentId];return revs&&revs.length?revs[revs.length-1].amount:0;}
+function refundedAmount(paymentId){return state.payments.filter(p=>p.refund_of===paymentId).reduce((n,p)=>n+p.amount,0);}
 function refreshExpirations(at=now()){for(const a of state.authorizations||[])if(a.status==='open'&&ledger.validInstant(a.expires_at)&&ledger.compareInstant(a.expires_at,at)<=0){a.status='expired';a.closed_at=a.expires_at;}}
 function authRemaining(a){return a.status==='open'?Math.max(0,a.amount-a.captured_amount):0;}
 function authView(a){return {...a,closed_at:a.closed_at??null,payment_ids:Array.isArray(a.payment_ids)?a.payment_ids:[],remaining_amount:authRemaining(a)};}
@@ -96,20 +98,101 @@ function paymentCorrection(req,res,user,path,requestStartedAt){
   const k=keyInfo(req,res,user,req.method,path,b);if(k.stop)return k.status?error(res,k.status,k.code):undefined;
   const paymentId=path.match(/^\/payments\/([^/]+)\/corrections$/)[1],p=state.payments.find(x=>x.payment_id===paymentId);
   if(!p)return error(res,404,'not_found');if(p.from_user_id!==user.id)return error(res,403,'forbidden');
-  if(p.settlement_id||p.authorization_id)return error(res,422,'linked_payment_immutable');
+  if(p.settlement_id||p.authorization_id||p.refund_of)return error(res,422,'linked_payment_immutable');
   if(!Object.hasOwn(b,'expected_revision')||!Object.hasOwn(b,'amount')||!Object.hasOwn(b,'effective_at')||!Object.hasOwn(b,'reason'))return error(res,422,'validation_failed');
   if(!parseNumber(b.expected_revision)||b.expected_revision<1||!parseNumber(b.amount)||b.amount<0||b.amount>1e9||typeof b.effective_at!=='string'||!ledger.validInstant(b.effective_at)||ledger.compareInstant(b.effective_at,requestStartedAt)>0||typeof b.reason!=='string'||Array.from(b.reason).length<1||Array.from(b.reason).length>200)return error(res,422,'validation_failed');
   const revisions=state.payment_revisions[p.payment_id]||[],current=revisions[revisions.length-1];
   if(!current)return error(res,404,'not_found');if(b.expected_revision!==current.revision)return error(res,409,'stale_revision');
+  if(b.amount<refundedAmount(p.payment_id))return error(res,422,'refund_exceeds_payment');
   const delta=b.amount-current.amount,from=userById(p.from_user_id),to=userById(p.to_user_id);
   if(delta>0&&availableFor(from)<delta||delta<0&&availableFor(to)<-delta)return error(res,409,'insufficient_funds');
   if(delta>0&&to.balance+delta>Number.MAX_SAFE_INTEGER||delta<0&&from.balance-delta>Number.MAX_SAFE_INTEGER)return error(res,422,'validation_failed');
-  const recorded_at=rfcNowAfter(state.last_recorded_at||current.recorded_at),revision={revision:current.revision+1,amount:b.amount,effective_at:b.effective_at,recorded_at,reason:b.reason};
+  const recorded_at=rfcNowAfter(state.last_recorded_at||current.recorded_at),revision={revision:current.revision+1,amount:b.amount,effective_at:b.effective_at,recorded_at,reason:b.reason,correction_batch_id:null};
   const trial={...state,payment_revisions:{...state.payment_revisions}};
   if(!ledger.historicalSafe(trial,recorded_at,{payment_id:p.payment_id,revision}))return error(res,409,'historical_overdraft');
   if(delta>0){from.balance-=delta;to.balance+=delta;}else if(delta<0){from.balance-=delta;to.balance+=delta;}
   revisions.push(revision);state.payment_revisions[p.payment_id]=revisions;state.last_recorded_at=recorded_at;
   const out={payment_id:p.payment_id,revision:revision.revision,amount:revision.amount,effective_at:revision.effective_at,recorded_at:revision.recorded_at,reason:revision.reason};k.save(out);return json(res,201,out);
+ })();
+}
+function paymentRefund(req,res,user,path){
+ return (async()=>{
+  let b;try{b=await readBody(req);}catch{return badBody(res);}
+  if(!b||typeof b!=='object'||Array.isArray(b))return badBody(res);
+  const k=keyInfo(req,res,user,req.method,path,b);if(k.stop)return k.status?error(res,k.status,k.code):undefined;
+  const paymentId=path.match(/^\/payments\/([^/]+)\/refunds$/)[1],p=state.payments.find(x=>x.payment_id===paymentId);
+  if(!p)return error(res,404,'not_found');if(p.to_user_id!==user.id)return error(res,403,'forbidden');
+  if(p.refund_of)return error(res,422,'invalid_refund_target');
+  if(b.amount===undefined||!amountRule(b.amount))return error(res,422,'validation_failed');
+  const cap=currentAmount(p.payment_id)-refundedAmount(p.payment_id);
+  if(b.amount>cap)return error(res,422,'refund_exceeds_payment');
+  const from=user,to=userById(p.from_user_id);
+  if(availableFor(from)<b.amount)return error(res,409,'insufficient_funds');
+  if(to.balance+b.amount>Number.MAX_SAFE_INTEGER)return error(res,422,'validation_failed');
+  const rp=payment(from,to,b.amount,p.note,p.visibility,null,null,now(),null,p.payment_id);
+  const out={payment_id:rp.payment_id,from_user_id:rp.from_user_id,from_handle:rp.from_handle,to_user_id:rp.to_user_id,to_handle:rp.to_handle,amount:rp.amount,currency:rp.currency,note:rp.note,visibility:rp.visibility,request_id:null,created_at:rp.created_at,settlement_id:null,authorization_id:null,refund_of:rp.refund_of};
+  k.save(out);return json(res,201,out);
+ })();
+}
+function correctionBatches(req,res,user,path,requestStartedAt){
+ return (async()=>{
+  let b;try{b=await readBody(req);}catch{return badBody(res);}
+  if(!b||typeof b!=='object'||Array.isArray(b))return badBody(res);
+  const k=keyInfo(req,res,user,req.method,path,b);if(k.stop)return k.status?error(res,k.status,k.code):undefined;
+  if(!state.operators.includes(user.id))return error(res,403,'forbidden');
+  if(!Array.isArray(b.corrections)||b.corrections.length<1||b.corrections.length>32)return error(res,422,'validation_failed');
+  const ids=b.corrections.map(c=>c&&typeof c==='object'?c.payment_id:undefined);
+  if(new Set(ids).size!==ids.length)return error(res,422,'validation_failed');
+  const items=[];
+  for(const c of b.corrections){
+   if(!c||typeof c!=='object'||Array.isArray(c)||typeof c.payment_id!=='string')return error(res,422,'validation_failed');
+   const p=state.payments.find(x=>x.payment_id===c.payment_id);if(!p)return error(res,404,'not_found');
+   if(p.authorization_id||p.refund_of)return error(res,422,'linked_payment_immutable');
+   if(!Object.hasOwn(c,'expected_revision')||!Object.hasOwn(c,'amount')||!Object.hasOwn(c,'effective_at')||!Object.hasOwn(c,'reason'))return error(res,422,'validation_failed');
+   if(!parseNumber(c.expected_revision)||c.expected_revision<1||!parseNumber(c.amount)||c.amount<0||c.amount>1e9||typeof c.effective_at!=='string'||!ledger.validInstant(c.effective_at)||ledger.compareInstant(c.effective_at,requestStartedAt)>0||typeof c.reason!=='string'||Array.from(c.reason).length<1||Array.from(c.reason).length>200)return error(res,422,'validation_failed');
+   const revisions=state.payment_revisions[p.payment_id]||[],current=revisions[revisions.length-1];
+   if(!current)return error(res,404,'not_found');
+   if(c.expected_revision!==current.revision)return error(res,409,'stale_revision');
+   if(c.amount<refundedAmount(p.payment_id))return error(res,422,'refund_exceeds_payment');
+   items.push({c,p,current});
+  }
+  const bySettlement=new Map();
+  for(const {c,p} of items){
+   if(!p.settlement_id)continue;
+   if(!bySettlement.has(p.settlement_id))bySettlement.set(p.settlement_id,[]);
+   bySettlement.get(p.settlement_id).push(c);
+  }
+  for(const [sid,corrs] of bySettlement){
+   const members=state.payments.filter(x=>x.settlement_id===sid).map(x=>x.payment_id);
+   if(members.some(mid=>!ids.includes(mid)))return error(res,422,'incomplete_settlement');
+   const first=corrs[0].effective_at;
+   if(corrs.some(c=>ledger.compareInstant(c.effective_at,first)!==0))return error(res,422,'validation_failed');
+  }
+  const deltas=new Map();
+  for(const {c,p,current} of items){
+   const delta=c.amount-current.amount;
+   deltas.set(p.from_user_id,(deltas.get(p.from_user_id)||0)-delta);
+   deltas.set(p.to_user_id,(deltas.get(p.to_user_id)||0)+delta);
+  }
+  for(const [uid,d] of deltas){
+   const u=userById(uid);
+   if(d<0&&availableFor(u)<-d)return error(res,409,'insufficient_funds');
+   if(d>0&&u.balance+d>Number.MAX_SAFE_INTEGER)return error(res,422,'validation_failed');
+  }
+  const recorded_at=rfcNowAfter(state.last_recorded_at||items[0].current.recorded_at);
+  const trial=items.map(({c,p})=>({payment_id:p.payment_id,revision:{revision:c.expected_revision+1,amount:c.amount,effective_at:c.effective_at,recorded_at}}));
+  if(!ledger.historicalSafe(state,recorded_at,trial))return error(res,409,'historical_overdraft');
+  const correction_batch_id=id('cb'),revisionsOut=[];
+  for(const {c,p,current} of items){
+   const delta=c.amount-current.amount,from=userById(p.from_user_id),to=userById(p.to_user_id);
+   from.balance-=delta;to.balance+=delta;
+   const revision={revision:current.revision+1,amount:c.amount,effective_at:c.effective_at,recorded_at,reason:c.reason,correction_batch_id};
+   state.payment_revisions[p.payment_id]=[...(state.payment_revisions[p.payment_id]||[]),revision];
+   revisionsOut.push({payment_id:p.payment_id,revision:revision.revision,amount:revision.amount,effective_at:revision.effective_at,recorded_at:revision.recorded_at,reason:revision.reason,correction_batch_id});
+  }
+  state.last_recorded_at=recorded_at;
+  const out={correction_batch_id,recorded_at,revisions:revisionsOut};
+  k.save(out);return json(res,201,out);
  })();
 }
 function serveFile(res,name,type){try{const data=fs.readFileSync(path.join(__dirname,name));res.writeHead(200,{'content-type':type});res.end(data);}catch{return error(res,500,'internal_error');}}
@@ -163,6 +246,12 @@ function validateFixtureStage3(input){
   if(!ledger.historicalSafe(result,resetAt))return null;
   return result;
  }catch{return null;}
+}
+function validateFixtureStage4(input){
+ const result=validateFixtureStage3(input);if(!result)return null;
+ for(const p of result.payments)if(p.refund_of===undefined)p.refund_of=null;
+ for(const revs of Object.values(result.payment_revisions))for(const r of revs)if(r.correction_batch_id===undefined)r.correction_batch_id=null;
+ return result;
 }
 function importValidate(x){if(!x||x.track!=='pocketful'||x.format_version!==1||!x.state||typeof x.state!=='object'||Array.isArray(x.state))return null;const s=x.state,units={EUR:2,JPY:0,BHD:3};if(units[s.currency]!==s.minor_units)return null;for(const k of ['users','tokens','payments','requests','splits','settlements','operators','idempotency'])if(!Array.isArray(s[k]))return null;try{const z=clone(s),ids=new Set(),handles=new Set();for(const u of z.users){if(!u||typeof u.id!=='string'||!u.id.length||u.id.length>64||typeof u.email!=='string'||typeof u.password_hash!=='string'||typeof u.password_salt!=='string'||typeof u.display_name!=='string'||typeof u.handle!=='string'||!/^[a-z0-9_]{1,20}$/.test(u.handle)||!parseNumber(u.balance)||u.balance<0||!Array.isArray(u.tokens)||u.tokens.some(t=>typeof t!=='string')||ids.has(u.id)||handles.has(u.handle))return null;ids.add(u.id);handles.add(u.handle);}const hasUser=id=>ids.has(id);for(const p of z.payments)if(!p||typeof p.payment_id!=='string'||!p.payment_id.length||p.payment_id.length>64||p.request_id!==null&&(typeof p.request_id!=='string'||!p.request_id.length||p.request_id.length>64)||!hasUser(p.from_user_id)||!hasUser(p.to_user_id)||!parseNumber(p.amount)||p.amount<0||p.amount>1e9||typeof p.note!=='string'||!['public','private'].includes(p.visibility)||typeof p.created_at!=='string')return null;for(const r of z.requests)if(!r||typeof r.request_id!=='string'||!r.request_id.length||r.request_id.length>64||!hasUser(r.requester_id)||!hasUser(r.payer_id)||!parseNumber(r.amount)||r.amount<0||r.amount>1e9||typeof r.note!=='string'||!['pending','paid','declined','cancelled'].includes(r.status)||typeof r.created_at!=='string')return null;if(z.operators.some(id=>!hasUser(id)))return null;for(const k of z.idempotency)if(!k||!hasUser(k.user_id)||typeof k.key!=='string'||!k.key.length||k.key.length>255||typeof k.method!=='string'||typeof k.path!=='string'||!k.body||typeof k.body!=='object'||!k.response||typeof k.response!=='object')return null;return z;}catch{return null;}}
 function importValidateStage2(x){
@@ -223,14 +312,28 @@ function importValidateStage3(x){
   return z;
  }catch{return null;}
 }
+function importValidateStage4(x){
+ const z=importValidateStage3(x);if(!z)return null;
+ for(const p of z.payments){
+  if(p.refund_of===undefined)p.refund_of=null;
+  else if(p.refund_of!==null&&(typeof p.refund_of!=='string'||!z.payments.some(o=>o.payment_id===p.refund_of)))return null;
+ }
+ for(const revs of Object.values(z.payment_revisions)){
+  for(const r of revs){
+   if(r.correction_batch_id===undefined)r.correction_batch_id=null;
+   else if(r.correction_batch_id!==null&&typeof r.correction_batch_id!=='string')return null;
+  }
+ }
+ return z;
+}
 async function handler(req,res){const requestStartedAt=now(),url=new URL(req.url,'http://local');const path=url.pathname;
  if(req.method==='GET'&&path==='/health')return json(res,200,{status:'ok'});
  if(req.method==='GET'&&path==='/app.js')return serveFile(res,'app.js','text/javascript; charset=utf-8');
  if(req.method==='GET'&&path==='/styles.css')return serveFile(res,'styles.css','text/css; charset=utf-8');
  if(req.method==='GET'&&acceptsHtml(req)&&['/','/requests','/split','/signup','/login','/authorizations'].includes(path))return serveFile(res,'index.html','text/html; charset=utf-8');
- if(req.method==='POST'&&path==='/_test/reset'){let b;try{b=await readBody(req);}catch{return badBody(res);}const s=validateFixtureStage3(b);if(!s)return error(res,422,'validation_failed');state=s;res.writeHead(204);return res.end();}
+ if(req.method==='POST'&&path==='/_test/reset'){let b;try{b=await readBody(req);}catch{return badBody(res);}const s=validateFixtureStage4(b);if(!s)return error(res,422,'validation_failed');state=s;res.writeHead(204);return res.end();}
  if(req.method==='GET'&&path==='/_test/export'){refreshExpirations();return json(res,200,{track:'pocketful',format_version:1,state:clone(state)});}
- if(req.method==='POST'&&path==='/_test/import'){let b;try{b=await readBody(req);}catch{return badBody(res);}const s=importValidateStage3(b);if(!s)return error(res,422,'validation_failed');state=s;refreshExpirations();res.writeHead(204);return res.end();}
+ if(req.method==='POST'&&path==='/_test/import'){let b;try{b=await readBody(req);}catch{return badBody(res);}const s=importValidateStage4(b);if(!s)return error(res,422,'validation_failed');state=s;refreshExpirations();res.writeHead(204);return res.end();}
  if(req.method==='POST'&&['/auth/signup','/auth/login'].includes(path)){let b;try{b=await readBody(req);}catch{return badBody(res);}if(!b||typeof b!=='object'||Array.isArray(b))return badBody(res);if(!validFieldTypes(b,{email:'string',password:'string',display_name:'string'}))return badBody(res);if(path.endsWith('signup')){if(b.email===undefined||b.password===undefined||b.display_name===undefined)return error(res,422,'validation_failed');if(typeof b.email!=='string'||typeof b.password!=='string'||typeof b.display_name!=='string'||!/^[^@\s]+@[^@\s]+$/.test(b.email)||b.password.length<8)return error(res,422,'validation_failed');if(state.users.some(u=>u.email.toLowerCase()===b.email.toLowerCase()))return error(res,409,'email_taken');const handle=b.email.split('@')[0].toLowerCase().replace(/[^a-z0-9_]/g,'_').slice(0,20);if(userByHandle(handle))return error(res,409,'handle_taken');const salt=crypto.randomBytes(16).toString('hex'),hash=crypto.scryptSync(b.password,salt,64).toString('hex');const u={id:id('u'),email:b.email,password_hash:hash,password_salt:salt,display_name:b.display_name,handle,balance:0,tokens:[]};const token=crypto.randomBytes(32).toString('hex');u.tokens.push(token);state.users.push(u);state.opening_balances[u.id]=0;return json(res,201,{user_id:u.id,display_name:u.display_name,token});}if(b.email===undefined||b.password===undefined)return error(res,422,'validation_failed');const u=state.users.find(x=>x.email.toLowerCase()===String(b.email).toLowerCase());if(!u||!u.password_hash||crypto.scryptSync(String(b.password),u.password_salt,64).toString('hex')!==u.password_hash)return error(res,401,'unauthenticated');const token=crypto.randomBytes(32).toString('hex');u.tokens.push(token);return json(res,200,{user_id:u.id,display_name:u.display_name,token});}
  const user=auth(req,res);if(!user)return;
  if(req.method==='GET'&&path==='/me'){
@@ -247,10 +350,12 @@ async function handler(req,res){const requestStartedAt=now(),url=new URL(req.url
  const revisionsMatch=path.match(/^\/payments\/([^/]+)\/revisions$/);
  if(req.method==='GET'&&revisionsMatch){const p=state.payments.find(x=>x.payment_id===revisionsMatch[1]);if(!p)return error(res,404,'not_found');if(p.from_user_id!==user.id&&p.to_user_id!==user.id)return error(res,404,'not_found');return json(res,200,{revisions:clone(state.payment_revisions[p.payment_id]||[])});}
  if(req.method==='POST'&&/^\/payments\/[^/]+\/corrections$/.test(path))return paymentCorrection(req,res,user,path,requestStartedAt);
+ if(req.method==='POST'&&/^\/payments\/[^/]+\/refunds$/.test(path))return paymentRefund(req,res,user,path);
+ if(req.method==='POST'&&path==='/correction-batches')return correctionBatches(req,res,user,path,requestStartedAt);
  if(req.method==='GET'&&path==='/activity')return page(req,res,user,'activity');if(req.method==='GET'&&path==='/requests')return page(req,res,user,'requests');if(req.method==='GET'&&path==='/authorizations')return pageAuthorizations(req,res,user);
- if(req.method==='POST'&&path==='/payments'){let b;try{b=await readBody(req);}catch{return badBody(res);}if(!b||typeof b!=='object'||Array.isArray(b))return badBody(res);const k=keyInfo(req,res,user,req.method,path,b);if(k.stop)return k.status?error(res,k.status,k.code):undefined;if(b.to_handle===undefined||b.amount===undefined)return error(res,422,'validation_failed');if(typeof b.to_handle!=='string')return badBody(res);const note=b.note===undefined?'':b.note,vis=b.visibility===undefined?'public':b.visibility;if(!amountRule(b.amount)||typeof note!=='string'||Array.from(note).length>200||!['public','private'].includes(vis))return error(res,422,'validation_failed');const to=userByHandle(b.to_handle);if(!to)return error(res,404,'not_found');if(to.id===user.id)return error(res,422,'self_payment');if(availableFor(user)<b.amount)return error(res,409,'insufficient_funds');if(to.balance+b.amount>Number.MAX_SAFE_INTEGER)return error(res,422,'validation_failed');const p=payment(user,to,b.amount,note,vis);const out={payment_id:p.payment_id,from_user_id:p.from_user_id,from_handle:p.from_handle,to_user_id:p.to_user_id,to_handle:p.to_handle,amount:p.amount,currency:p.currency,note:p.note,visibility:p.visibility,request_id:null,created_at:p.created_at,settlement_id:null,authorization_id:null};k.save(out);return json(res,201,out);}
+ if(req.method==='POST'&&path==='/payments'){let b;try{b=await readBody(req);}catch{return badBody(res);}if(!b||typeof b!=='object'||Array.isArray(b))return badBody(res);const k=keyInfo(req,res,user,req.method,path,b);if(k.stop)return k.status?error(res,k.status,k.code):undefined;if(b.to_handle===undefined||b.amount===undefined)return error(res,422,'validation_failed');if(typeof b.to_handle!=='string')return badBody(res);const note=b.note===undefined?'':b.note,vis=b.visibility===undefined?'public':b.visibility;if(!amountRule(b.amount)||typeof note!=='string'||Array.from(note).length>200||!['public','private'].includes(vis))return error(res,422,'validation_failed');const to=userByHandle(b.to_handle);if(!to)return error(res,404,'not_found');if(to.id===user.id)return error(res,422,'self_payment');if(availableFor(user)<b.amount)return error(res,409,'insufficient_funds');if(to.balance+b.amount>Number.MAX_SAFE_INTEGER)return error(res,422,'validation_failed');const p=payment(user,to,b.amount,note,vis);const out={payment_id:p.payment_id,from_user_id:p.from_user_id,from_handle:p.from_handle,to_user_id:p.to_user_id,to_handle:p.to_handle,amount:p.amount,currency:p.currency,note:p.note,visibility:p.visibility,request_id:null,created_at:p.created_at,settlement_id:null,authorization_id:null,refund_of:null};k.save(out);return json(res,201,out);}
  if(req.method==='POST'&&path==='/requests'){let b;try{b=await readBody(req);}catch{return badBody(res);}if(!b||typeof b!=='object'||Array.isArray(b))return badBody(res);const k=keyInfo(req,res,user,req.method,path,b);if(k.stop)return k.status?error(res,k.status,k.code):undefined;if(b.payer_handle===undefined||b.amount===undefined)return error(res,422,'validation_failed');if(typeof b.payer_handle!=='string')return badBody(res);const note=b.note===undefined?'':b.note;if(!amountRule(b.amount)||typeof note!=='string'||Array.from(note).length>200)return error(res,422,'validation_failed');const payer=userByHandle(b.payer_handle);if(!payer)return error(res,404,'not_found');if(payer.id===user.id)return error(res,422,'self_request');const r={request_id:id('rq'),requester_id:user.id,requester_handle:user.handle,payer_id:payer.id,payer_handle:payer.handle,amount:b.amount,currency:state.currency,note,status:'pending',payment_id:null,created_at:now()};state.requests.push(r);k.save(r);return json(res,201,r);}
- const match=path.match(/^\/requests\/([^/]+)\/(pay|decline|cancel)$/);if(match){const [,rid,action]=match;let r=state.requests.find(x=>x.request_id===rid);if(!r)return error(res,404,'not_found');if(action==='pay'){let b;try{b=await readBody(req);}catch{return badBody(res);}if(!b||typeof b!=='object'||Array.isArray(b))return badBody(res);const k=keyInfo(req,res,user,req.method,path,b);if(k.stop)return k.status?error(res,k.status,k.code):undefined;if(r.payer_id!==user.id)return error(res,403,'forbidden');if(r.status!=='pending')return error(res,409,'request_not_pending');const vis=b.visibility===undefined?'public':b.visibility;if(!['public','private'].includes(vis))return error(res,422,'validation_failed');const from=user,to=userById(r.requester_id);if(availableFor(from)<r.amount)return error(res,409,'insufficient_funds');if(to.balance+r.amount>Number.MAX_SAFE_INTEGER)return error(res,422,'validation_failed');const p=payment(from,to,r.amount,r.note,vis,r.request_id);r.status='paid';r.payment_id=p.payment_id;const out={payment_id:p.payment_id,from_user_id:p.from_user_id,from_handle:p.from_handle,to_user_id:p.to_user_id,to_handle:p.to_handle,amount:p.amount,currency:p.currency,note:p.note,visibility:p.visibility,request_id:p.request_id,created_at:p.created_at,settlement_id:null,authorization_id:null};k.save(out);return json(res,201,out);}
+ const match=path.match(/^\/requests\/([^/]+)\/(pay|decline|cancel)$/);if(match){const [,rid,action]=match;let r=state.requests.find(x=>x.request_id===rid);if(!r)return error(res,404,'not_found');if(action==='pay'){let b;try{b=await readBody(req);}catch{return badBody(res);}if(!b||typeof b!=='object'||Array.isArray(b))return badBody(res);const k=keyInfo(req,res,user,req.method,path,b);if(k.stop)return k.status?error(res,k.status,k.code):undefined;if(r.payer_id!==user.id)return error(res,403,'forbidden');if(r.status!=='pending')return error(res,409,'request_not_pending');const vis=b.visibility===undefined?'public':b.visibility;if(!['public','private'].includes(vis))return error(res,422,'validation_failed');const from=user,to=userById(r.requester_id);if(availableFor(from)<r.amount)return error(res,409,'insufficient_funds');if(to.balance+r.amount>Number.MAX_SAFE_INTEGER)return error(res,422,'validation_failed');const p=payment(from,to,r.amount,r.note,vis,r.request_id);r.status='paid';r.payment_id=p.payment_id;const out={payment_id:p.payment_id,from_user_id:p.from_user_id,from_handle:p.from_handle,to_user_id:p.to_user_id,to_handle:p.to_handle,amount:p.amount,currency:p.currency,note:p.note,visibility:p.visibility,request_id:p.request_id,created_at:p.created_at,settlement_id:null,authorization_id:null,refund_of:null};k.save(out);return json(res,201,out);}
  if(action==='decline'){if(r.payer_id!==user.id)return error(res,403,'forbidden');if(r.status==='declined')return json(res,200,r);if(r.status!=='pending')return error(res,409,'request_not_pending');r.status='declined';return json(res,200,r);}if(r.requester_id!==user.id)return error(res,403,'forbidden');if(r.status==='cancelled')return json(res,200,r);if(r.status!=='pending')return error(res,409,'request_not_pending');r.status='cancelled';return json(res,200,r);}
  if(req.method==='POST'&&path==='/authorizations'){
   let b;try{b=await readBody(req);}catch{return badBody(res);}if(!b||typeof b!=='object'||Array.isArray(b))return badBody(res);
@@ -280,7 +385,7 @@ async function handler(req,res){const requestStartedAt=now(),url=new URL(req.url
  const voidMatch=path.match(/^\/authorizations\/([^/]+)\/void$/);
  if(req.method==='POST'&&voidMatch){refreshExpirations();const a=state.authorizations.find(x=>x.authorization_id===voidMatch[1]);if(!a)return error(res,404,'not_found');if(a.from_user_id!==user.id)return error(res,403,'forbidden');if(a.status==='voided')return json(res,200,authView(a));if(a.status!=='open')return error(res,409,'authorization_not_open');a.status='voided';a.closed_at=now();return json(res,200,authView(a));}
  if(req.method==='POST'&&path==='/splits'){let b;try{b=await readBody(req);}catch{return badBody(res);}if(!b||typeof b!=='object'||Array.isArray(b))return badBody(res);const k=keyInfo(req,res,user,req.method,path,b);if(k.stop)return k.status?error(res,k.status,k.code):undefined;const hs=b.participant_handles,note=b.note===undefined?'':b.note;if(b.amount===undefined||hs===undefined)return error(res,422,'validation_failed');if(!amountRule(b.amount)||!Array.isArray(hs)||!hs.length||hs.some(x=>typeof x!=='string')||new Set(hs).size!==hs.length||typeof note!=='string'||Array.from(note).length>200)return error(res,422,'validation_failed');const members=hs.map(userByHandle);if(members.some(x=>!x))return error(res,404,'not_found');const count=members.length,base=Math.floor(b.amount/count),extra=b.amount%count;const shares=members.map((u,i)=>({handle:u.handle,amount:base+(i<extra?1:0)}));const created=now(),split_id=id('sp'),requests=[];for(let i=0;i<members.length;i++){const payer=members[i];if(payer.id===user.id)continue;const sh=shares[i];const r={request_id:id('rq'),requester_id:user.id,requester_handle:user.handle,payer_id:payer.id,payer_handle:payer.handle,amount:sh.amount,currency:state.currency,note,status:'pending',payment_id:null,created_at:created};state.requests.push(r);requests.push(r);}const out={split_id,amount:b.amount,currency:state.currency,note,shares,requests,created_at:created};state.splits.push(out);k.save(out);return json(res,201,out);}
- if(req.method==='POST'&&path==='/settlements'){let b;try{b=await readBody(req);}catch{return badBody(res);}if(!b||typeof b!=='object'||Array.isArray(b))return badBody(res);const k=keyInfo(req,res,user,req.method,path,b);if(k.stop)return k.status?error(res,k.status,k.code):undefined;if(!state.operators.includes(user.id))return error(res,403,'forbidden');if(!Array.isArray(b.transfers)||b.transfers.length<1||b.transfers.length>32)return error(res,422,'validation_failed');const transfers=[];for(const t of b.transfers){if(!t||typeof t!=='object'||Array.isArray(t)||typeof t.from_handle!=='string'||typeof t.to_handle!=='string')return error(res,422,'validation_failed');const note=t.note===undefined?'':t.note,vis=t.visibility===undefined?'public':t.visibility;if(!amountRule(t.amount)||typeof note!=='string'||Array.from(note).length>200||!['public','private'].includes(vis))return error(res,422,'validation_failed');const from=userByHandle(t.from_handle),to=userByHandle(t.to_handle);if(!from||!to)return error(res,404,'not_found');if(from.id===to.id)return error(res,422,'self_payment');transfers.push({from,to,amount:t.amount,note,visibility:vis});}const deltas=new Map();for(const t of transfers){deltas.set(t.from.id,(deltas.get(t.from.id)||0)-t.amount);deltas.set(t.to.id,(deltas.get(t.to.id)||0)+t.amount);}if([...deltas].some(([uid,d])=>userById(uid).balance+d<heldFor(userById(uid))))return error(res,409,'insufficient_funds');if([...deltas].some(([uid,d])=>userById(uid).balance+d>Number.MAX_SAFE_INTEGER))return error(res,422,'validation_failed');const committed_at=now(),settlement_id=id('st'),payments=transfers.map(t=>({payment_id:id('p'),from_user_id:t.from.id,from_handle:t.from.handle,to_user_id:t.to.id,to_handle:t.to.handle,amount:t.amount,currency:state.currency,note:t.note,visibility:t.visibility,request_id:null,created_at:committed_at,settlement_id,authorization_id:null}));for(const [uid,d] of deltas)userById(uid).balance+=d;state.payments.push(...payments);for(const p of payments)recordPaymentRevision(p);const out={settlement_id,committed_at,payments};state.settlements.push(out);k.save(out);return json(res,201,out);}
+ if(req.method==='POST'&&path==='/settlements'){let b;try{b=await readBody(req);}catch{return badBody(res);}if(!b||typeof b!=='object'||Array.isArray(b))return badBody(res);const k=keyInfo(req,res,user,req.method,path,b);if(k.stop)return k.status?error(res,k.status,k.code):undefined;if(!state.operators.includes(user.id))return error(res,403,'forbidden');if(!Array.isArray(b.transfers)||b.transfers.length<1||b.transfers.length>32)return error(res,422,'validation_failed');const transfers=[];for(const t of b.transfers){if(!t||typeof t!=='object'||Array.isArray(t)||typeof t.from_handle!=='string'||typeof t.to_handle!=='string')return error(res,422,'validation_failed');const note=t.note===undefined?'':t.note,vis=t.visibility===undefined?'public':t.visibility;if(!amountRule(t.amount)||typeof note!=='string'||Array.from(note).length>200||!['public','private'].includes(vis))return error(res,422,'validation_failed');const from=userByHandle(t.from_handle),to=userByHandle(t.to_handle);if(!from||!to)return error(res,404,'not_found');if(from.id===to.id)return error(res,422,'self_payment');transfers.push({from,to,amount:t.amount,note,visibility:vis});}const deltas=new Map();for(const t of transfers){deltas.set(t.from.id,(deltas.get(t.from.id)||0)-t.amount);deltas.set(t.to.id,(deltas.get(t.to.id)||0)+t.amount);}if([...deltas].some(([uid,d])=>userById(uid).balance+d<heldFor(userById(uid))))return error(res,409,'insufficient_funds');if([...deltas].some(([uid,d])=>userById(uid).balance+d>Number.MAX_SAFE_INTEGER))return error(res,422,'validation_failed');const committed_at=now(),settlement_id=id('st'),payments=transfers.map(t=>({payment_id:id('p'),from_user_id:t.from.id,from_handle:t.from.handle,to_user_id:t.to.id,to_handle:t.to.handle,amount:t.amount,currency:state.currency,note:t.note,visibility:t.visibility,request_id:null,created_at:committed_at,settlement_id,authorization_id:null,refund_of:null}));for(const [uid,d] of deltas)userById(uid).balance+=d;state.payments.push(...payments);for(const p of payments)recordPaymentRevision(p);const out={settlement_id,committed_at,payments};state.settlements.push(out);k.save(out);return json(res,201,out);}
  return error(res,404,'not_found');
 }
 const server=http.createServer((req,res)=>{Promise.resolve(handler(req,res)).catch(()=>{if(!res.headersSent)error(res,500,'internal_error');else res.end();});});server.listen(Number(process.env.PORT)||8080,'0.0.0.0');
