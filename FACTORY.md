@@ -35,7 +35,12 @@ No purchase, top-up, paid fallback, or OpenCode Zen use occurred. No per-seat co
 - Both active reviewers independently approved exact revision `22cab66916735c3320b227b6ecd1b1d1bdc90cb2`: the Spec Auditor at 19:52 UTC (`evidence/stage3-spec-audit-22cab669.md`) and the Verifier at 22:16 UTC.
 - Two fresh-clone isolated harness runs at that revision completed: host run `f9e62a5c` (`evidence/stage3-isolated-harness-report-host.json`) and Verifier run `bb07ea8d` (`evidence/stage3-isolated-harness-report-verifier.json`). Each passed Stage 1 147/147, Stage 2 35/35 and Stage 3 6/6, with zero failures, errors or skips. Stage 4 checks fail as expected overshoot.
 - Recorded assumption: a legacy Stage 1/2 voided authorization has no saved closure time, so import preserves its closed status and balances without inventing a historical release instant.
-- Stage 4 was dispatched at 22:51 UTC but was never started: the Codex Builder, Architect and Verifier seats hit their ChatGPT/Codex usage limit at 01:16 UTC on October 6.
+### Stage 4 evidence
+
+- Claude seats were substituted for the Codex Builder and Verifier after all Codex seats (Builder, Architect, Verifier) hit their ChatGPT/Codex usage limit at 01:16 UTC on October 6, before any Stage 4 code existed. Nick approved the substitution directly in the room at 03:41 UTC. `pf4-builder-claude` (Claude Code, claude-sonnet-5) authored all Stage 4 code; `pf4-verifier-claude` (Claude Code, claude-sonnet-5) verified it and `pf3-auditor-claude` audited it. Stage 4 dispatch and review handoffs were posted under Nick's account by his Claude Code coordinator session.
+- Builder candidate `203e4480bbfcf05183f248ace764db3d45130028` adds only `stage-4/`; stages 1–3 and root files are unchanged from `22cab66`.
+- The Verifier (`pf4-verifier-claude`) approved that exact revision at 04:37 UTC and the Spec Auditor (`pf3-auditor-claude`) at 05:16 UTC.
+- Host fresh-clone isolated harness run (`evidence/stage4-isolated-harness-report-host.json`) passed Stage 1 147/147, Stage 2 35/35, Stage 3 6/6 and Stage 4 5/5 with zero failures, errors or skips. The Verifier's own run is `evidence/stage4-isolated-harness-report-verifier.json`. The Spec Auditor report is `evidence/stage4-spec-audit-203e448.md`.
 
 ### Earlier findings retained as history
 

@@ -1,4 +1,4 @@
-# Pocketful: 3 Stages, 188 Checks Passed
+# Pocketful: 4 Stages, 193 Checks Passed
 
 **Team:** Nick Switzer and the active Band seats `nicholas.switzer/next-architect`, `nicholas.switzer/next-builder`, `nicholas.switzer/pf3-verifier-codex`, and `nicholas.switzer/pf3-auditor-claude`.
 
@@ -6,12 +6,16 @@ The current review authorities are `pf3-verifier-codex` (Codex, gpt-6-luna) and 
 
 **Track:** Pocketful.
 
-This repository contains three independently approved, independently buildable Pocketful stages:
+This repository contains four independently approved, independently buildable Pocketful stages:
 
 - Stage 1 payments and settlements ([`stage-1/`](stage-1/)) and Stage 2 wallet UI and payment authorizations ([`stage-2/`](stage-2/)), approved at service revision `02d0b12a0cb55468540a0a2ff63ee78297a23756` and final package `e17618e2`.
 - Stage 3 statements, historical balances and payment corrections ([`stage-3/`](stage-3/)), approved by both active reviewers at exact revision `22cab66916735c3320b227b6ecd1b1d1bdc90cb2`. Two fresh-clone isolated harness runs at that revision (host and Verifier) each passed Stage 1 147/147, Stage 2 35/35 and Stage 3 6/6 with zero failures, errors or skips. Stage 1 and Stage 2 are byte-identical to the approved package.
 
-Stage 4 is not included. This is a supervised practice run, not a hands-off submission and not a claim of submission eligibility. Publication preserves the reviewed service files.
+- Stage 4 refunds and batch corrections ([`stage-4/`](stage-4/)), approved by both reviewers at exact revision `203e4480bbfcf05183f248ace764db3d45130028`. A fresh-clone isolated harness run at that revision passed 147/147, 35/35, 6/6 and 5/5 with zero failures. Stages 1–3 are byte-identical to the approved Stage 3 revision.
+
+Claude seats were substituted for the Codex Builder and Verifier after all Codex seats (Builder, Architect, Verifier) hit their ChatGPT/Codex usage limit at 01:16 UTC on October 6, before any Stage 4 code existed. Nick approved the substitution directly in the room at 03:41 UTC. `pf4-builder-claude` (Claude Code, claude-sonnet-5) authored all Stage 4 code; `pf4-verifier-claude` (Claude Code, claude-sonnet-5) verified it and `pf3-auditor-claude` audited it. Stage 4 dispatch and review handoffs were posted under Nick's account by his Claude Code coordinator session.
+
+This is a supervised practice run, not a hands-off submission and not a claim of submission eligibility. Publication preserves the reviewed service files.
 
 See [the submission overview](SUBMISSION.md), [presentation PDF](docs/Pocketful-presentation.pdf), and [recorded demo](https://switzloco.github.io/fabrik_oscuro/). The demo page contains a recorded presentation, not a hosted backend.
 
